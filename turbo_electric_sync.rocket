@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rootElement>
+	<bookmark row="152" />
+<tracks rows="10000" startRow="0" endRow="10000" highlightRowStep="8">
+	<track name="env:gridsz" folded="0" muteKeyCount="0"
+color="ffb27474">
+		<key row="7" value="0.000000" interpolation="0" />
+		<key row="8" value="0.200000" interpolation="2" />
+		<key row="10" value="0.100000" interpolation="2" />
+		<key row="12" value="0.200000" interpolation="2" />
+		<key row="16" value="0.000000" interpolation="1" />
+		<key row="17" value="0.800000" interpolation="1" />
+		<key row="19" value="0.300000" interpolation="1" />
+		<key row="23" value="0.000000" interpolation="1" />
+		<key row="24" value="0.300000" interpolation="1" />
+		<key row="27" value="0.000000" interpolation="1" />
+		<key row="28" value="0.300000" interpolation="1" />
+		<key row="31" value="0.000000" interpolation="1" />
+		<key row="32" value="0.800000" interpolation="1" />
+		<key row="34" value="0.300000" interpolation="2" />
+		<key row="39" value="0.000000" interpolation="1" />
+		<key row="40" value="0.200000" interpolation="2" />
+		<key row="42" value="0.100000" interpolation="2" />
+		<key row="44" value="0.200000" interpolation="2" />
+		<key row="48" value="0.000000" interpolation="1" />
+		<key row="49" value="0.800000" interpolation="1" />
+		<key row="51" value="0.300000" interpolation="1" />
+		<key row="55" value="0.000000" interpolation="1" />
+		<key row="56" value="0.300000" interpolation="1" />
+		<key row="59" value="0.000000" interpolation="1" />
+		<key row="60" value="0.300000" interpolation="1" />
+		<key row="63" value="0.000000" interpolation="1" />
+		<key row="64" value="0.800000" interpolation="1" />
+		<key row="66" value="0.300000" interpolation="2" />
+		<key row="71" value="0.000000" interpolation="1" />
+		<key row="72" value="0.200000" interpolation="2" />
+		<key row="74" value="0.100000" interpolation="2" />
+		<key row="76" value="0.200000" interpolation="2" />
+		<key row="80" value="0.000000" interpolation="1" />
+		<key row="81" value="0.800000" interpolation="1" />
+		<key row="83" value="0.300000" interpolation="1" />
+		<key row="87" value="0.000000" interpolation="1" />
+		<key row="88" value="0.300000" interpolation="1" />
+		<key row="91" value="0.000000" interpolation="1" />
+		<key row="92" value="0.300000" interpolation="1" />
+		<key row="95" value="0.000000" interpolation="1" />
+		<key row="96" value="0.800000" interpolation="1" />
+		<key row="98" value="0.300000" interpolation="2" />
+		<key row="103" value="0.000000" interpolation="1" />
+		<key row="137" value="1.000000" interpolation="1" />
+		<key row="143" value="0.000000" interpolation="1" />
+	</track>
+</tracks>
+	</rootElement>
