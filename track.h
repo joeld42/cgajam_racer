@@ -18,10 +18,14 @@ public:
 	Track();
 
 	void genRandom();
+
+	void addTrackPoint( float x, float z );
 	void addTrackPoint( TrackPoint tp );
 
 	void drawTrackEditMode();
 
+	void buildTrackMesh();
+	
 	float trackParametricLength();
 	
 	//float trackWorldLength ();

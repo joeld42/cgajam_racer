@@ -16,13 +16,29 @@ void Track::genRandom()
 {
 	nTrackPoints = 0;
 
-	// for testing
-	for (int i=0; i < 10; i++) {
-		TrackPoint tp;
-		tp.pos.x = RandUniformRange( -200.0f, 200.0f );
-		tp.pos.y = 0.0f;
-		tp.pos.z = RandUniformRange( -200.0f, 200.0f );
-		addTrackPoint( tp );
+	static bool usePreset = true;
+
+	if (usePreset) {
+		addTrackPoint( 0.072024, 0.603336 );
+	    addTrackPoint( 1.048974, -46.208435 );
+	    addTrackPoint( -102.838829, -135.614182 );
+	    addTrackPoint( -55.275116, -187.607513 );
+	    addTrackPoint( 76.841240, 15.792542 );
+	    addTrackPoint( 164.402313, -202.469330 );
+	    addTrackPoint( 190.208954, -64.451317 );
+	    addTrackPoint( 143.463242, -48.453033 );
+	    addTrackPoint( 72.900795, 137.979340 );
+	    addTrackPoint( -165.415070, 100.499458 );
+	} else {
+
+		// Generate random track for editing
+		for (int i=0; i < 10; i++) {
+			TrackPoint tp;
+			tp.pos.x = RandUniformRange( -200.0f, 200.0f );
+			tp.pos.y = 0.0f;
+			tp.pos.z = RandUniformRange( -200.0f, 200.0f );
+			addTrackPoint( tp );
+		}	
 	}	
 }
 
@@ -30,6 +46,13 @@ void Track::addTrackPoint( TrackPoint tp )
 {
 	assert( nTrackPoints < MAX_TRACK_POINTS );
 	point[nTrackPoints++] = tp;
+}
+
+void Track::addTrackPoint( float x, float z )
+{
+	TrackPoint tp;
+	tp.pos = Vector3Make( x, 0.0, z );
+	addTrackPoint( tp );
 }
 
 void Track::drawTrackEditMode()
@@ -64,6 +87,11 @@ void Track::drawTrackEditMode()
 				
 	}
 	
+}
+
+void Track::buildTrackMesh()
+{
+  	
 }
 
 float Track::trackParametricLength()

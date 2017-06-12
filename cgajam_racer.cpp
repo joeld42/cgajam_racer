@@ -178,6 +178,7 @@ void DrawGroundSquares()
         for (int i=-SZ; i <= SZ; i++) {
             Vector3 pos = {0.0f };
             pos.x = i * 20.0f;
+            pos.y = -0.5f;
             pos.z = j * 20.0f;
             Color groundColor = (Color)CGA_CYAN;
             if (editMode) {
@@ -281,6 +282,9 @@ int main()
     cycleTexture = LoadTexture("cubecycle.png");
     cycleMesh.material.texDiffuse = cycleTexture; 
 
+    int grabPointNdx = 0;
+    bool grabbed = false;
+
     // Main game loop
     while (!WindowShouldClose())                // Detect window close button or ESC key
     {
@@ -350,6 +354,55 @@ int main()
 
                 // editCamera = camera;
             }
+        }
+
+        if (editMode) {
+
+            if (IsKeyPressed(KEY_P)) {
+                // Print Track Points
+                for (int i=0; i < raceTrack.nTrackPoints; i++) {
+                    printf("    addTrackPoint( %f, %f );\n", 
+                        raceTrack.point[i].pos.x,
+                        raceTrack.point[i].pos.z );
+                }
+            }
+
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+            {
+                Ray ray = GetMouseRay(GetMousePosition(), editCamera );                
+                RayHitInfo groundHitInfo = GetCollisionRayGround(ray, 0.0f);
+
+                printf("Ground Hit: %3.2f %3.2f %3.2f\n",
+                    groundHitInfo.position.x,
+                    groundHitInfo.position.y,
+                    groundHitInfo.position.z );
+
+                float bestDist = 0.0;
+                int bestNdx = 0;
+                for (int i=0; i < raceTrack.nTrackPoints; i++) {
+                    float d = VectorDistance( raceTrack.point[i].pos, groundHitInfo.position );
+                    if ((i==0) || (d < bestDist)) {
+                        bestDist = d;
+                        bestNdx = i;
+                    }
+                }
+
+                if (bestDist < 10.0) {
+                    grabbed = true;
+                    grabPointNdx = bestNdx;
+                    printf("Grab point %d\n", grabPointNdx );
+                }
+
+            }
+            else if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+                grabbed = false;
+            }
+            else if (grabbed) {
+                Ray ray = GetMouseRay(GetMousePosition(), editCamera );                
+                RayHitInfo groundHitInfo = GetCollisionRayGround(ray, 0.0f);
+                raceTrack.point[grabPointNdx].pos = groundHitInfo.position;
+            }
+        
         }
 
         if (!editMode) {
