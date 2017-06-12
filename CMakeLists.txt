@@ -51,6 +51,7 @@ add_executable (cga_racer
 				${IMGUI_SRCS}
 				cgajam_racer.cpp
 				carsim.cpp
+				track.cpp
 				)
 
 target_link_libraries( cga_racer ${LIBS} )

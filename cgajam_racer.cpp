@@ -1,9 +1,12 @@
 
 #include <stdio.h> // for printf
 
+#include <OpenGL/gl3.h>
+
 #include "raylib.h"
 #include "carsim.h"
 #include "util.h"
+#include "track.h"
 
 // sync tracker from librocket
 #include "sync.h"
@@ -11,6 +14,7 @@
 // soloud audio
 #include "soloud.h"
 #include "soloud_wav.h"
+#include "soloud_echofilter.h"
 
 SoLoud::Soloud soloud;  
 SoLoud::Wav soloud_music;
@@ -51,6 +55,8 @@ Texture2D cycleTexture;
 bool doPixelate = true;
 bool doCGAMode = false;
 bool editMode = false;
+
+Track raceTrack;
 
 // ===================================================================================
 //  Sync tracker stuff
@@ -165,7 +171,7 @@ static int rocket_update()
 
 void DrawGroundSquares()
 {
-    float gridSz = 10.0f + (sync_get_val( syncGridSize, row_f ) * 10.0f);
+    float gridSz = 5.0f + (sync_get_val( syncGridSize, row_f ) * 15.0f);
 
     int SZ = 10;
     for (int j=-SZ; j <= SZ; j++) {
@@ -173,7 +179,11 @@ void DrawGroundSquares()
             Vector3 pos = {0.0f };
             pos.x = i * 20.0f;
             pos.z = j * 20.0f;
-            DrawPlane( pos, (Vector2){ gridSz, gridSz }, (Color)CGA_WHITE );
+            Color groundColor = (Color)CGA_CYAN;
+            if (editMode) {
+                groundColor = (Color){ 20, 20, 40, 0xff };
+            }
+            DrawPlane( pos, (Vector2){ gridSz, gridSz }, groundColor );
         }
     }
 }
@@ -238,24 +248,34 @@ int main()
     // Define the camera to look into our 3d world (position, target, up vector)
     Camera camera = {{ 4.0f, 2.0f, 4.0f }, { 0.0f, 1.8f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 60.0f };
     
-    Camera editCamera = {{ 4.0f, 20.0f, 10.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 90.0f };
+    Camera editCamera = {0};
 
-    SetCameraMode(editCamera, CAMERA_FIRST_PERSON); 
+    SetCameraMode(editCamera, CAMERA_FREE); 
     SetCameraMode(camera, CAMERA_FREE ); 
-    
+
 
     SetTargetFPS(60);                           // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
 
-    soloud_music.load("turbo_electric_16pcm.wav"); 
-    //soloud_music.load("crappyTestSong.wav"); 
+    //soloud_music.load("turbo_electric_16pcm.wav"); 
+
+    // Shorter excerpt for faster load during testing..
+    soloud_music.load("turbo_electric_16pcm_excerpt.wav"); 
+        
+    // SoLoud::EchoFilter echo;
+    // echo.setParams( 0.5f, 0.5f );
+    // soloud_music.setFilter( 0, &echo );
+
     hmusic = soloud.play(soloud_music);   
     printf("Play music: result %d\n", hmusic );
+
 
     syncGridSize = sync_get_track( rocket, "env:gridsz");
 
     // Game Stuff Init
     CarModel carSim;
+    srand( 0x6BA8F );
+    raceTrack.genRandom();
 
     cycleMesh = LoadModel("cubecycle.obj");
     cycleTexture = LoadTexture("cubecycle.png");
@@ -303,34 +323,59 @@ int main()
         if (IsKeyPressed(KEY_ZERO)) {
             doCGAMode = !doCGAMode;
         }
+        if (IsKeyPressed(KEY_FIVE)) {
+            int seed = rand() % 0xfffff;
+            srand( seed );
+            printf("TRACK SEED: %05X\n", seed );
+
+            raceTrack.genRandom();
+        }
         if (IsKeyPressed(KEY_E)) {
-            // Edit mode
+
+
+             //= {{ 4.0f, 10.0f, 100.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 90.0f };
             editMode = !editMode;
+
+            if (editMode) {
+                // Edit mode
+                editCamera.position = (Vector3){ 4.0f, 200.0f, 50.0f};
+                editCamera.target = (Vector3){ 0.0f, 0.0f, 0.0f};
+
+                Vector3 facingDir = VectorSubtract( editCamera.target, editCamera.position );
+                editCamera.up = VectorCrossProduct(  (Vector3){ 1.0f, 0.0f, 0.0f}, facingDir );
+                VectorNormalize( &(editCamera.up) );
+                //editCamera.up = (Vector3){ 0.0f, 1.0f, 0.0f};
+                editCamera.fovy = 90.0f;
+                SetCameraMode(editCamera, CAMERA_FREE);
+
+                // editCamera = camera;
+            }
         }
 
         if (!editMode) {
             carSim.Update( 1.0f/60.0f, throttle, turn, brake );
         }
 
-        camera.target = Vector3Make( carSim._pos.x, 0.0f, carSim._pos.y );
+        Vector3 camTarget = Vector3Make( carSim._pos.x, 0.0f, carSim._pos.y );
+        camera.target = camTarget;
+        Vector3 followDir = (Vector3){0.0, 0.0, 1.0f };
         if (Vector2Lenght( carSim._vel) > 0.0f) {
             Vector3 followDir = Vector3Make( -carSim._vel.x, 0.0f, -carSim._vel.y );
             VectorNormalize( &followDir );
-            Vector3 cameraOffset = Vector3MultScalar( followDir, 10.0f );
-            cameraOffset.y = 8.0f;
-
-            camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
-            camera.position = VectorAdd(camera.target, cameraOffset);
         }
 
-        if (editMode) {
-            UpdateCamera(&editCamera);                  
-        }
+        Vector3 cameraOffset = Vector3MultScalar( followDir, 10.0f );
+        cameraOffset.y = 8.0f;
+
+        camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
+        camera.position = VectorAdd( camTarget, cameraOffset);
+        
 
         //----------------------------------------------------------------------------------
 
         // Draw
         //----------------------------------------------------------------------------------
+        glLineWidth(4.0f);
         BeginDrawing();
 
             bool frameDoPixelate = doPixelate && (!editMode);
@@ -346,8 +391,15 @@ int main()
                 activeCamera = editCamera;
             }            
 
+
             Begin3dMode(activeCamera);
+
             DrawScene( &carSim );
+
+            if (editMode) {
+                raceTrack.drawTrackEditMode();
+            }
+
             End3dMode();
 
             if (frameDoPixelate) {
