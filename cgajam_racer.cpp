@@ -200,6 +200,8 @@ void DrawScene( CarModel *carSim )
     DrawGroundSquares();
     DrawShapes();
 
+    raceTrack.drawTrack();
+
     // Draw the car
     Vector3 carPos = {0};
     carPos.x = carSim->_pos.x;
@@ -278,6 +280,11 @@ int main()
     srand( 0x6BA8F );
     raceTrack.genRandom();
 
+    raceTrack.buildTrackMesh();
+
+    Vector3 trackStart = raceTrack.point[0].pos;
+    carSim._pos = Vector2Make( trackStart.x, trackStart.z );
+
     cycleMesh = LoadModel("cubecycle.obj");
     cycleTexture = LoadTexture("cubecycle.png");
     cycleMesh.material.texDiffuse = cycleTexture; 
@@ -316,7 +323,8 @@ int main()
         // DBG/Edit keys
         if (IsKeyPressed(KEY_Z)) {
             // DBG reset
-            carSim._pos = Vector2Make( 0.0f, 0.0f );
+            Vector3 trackStart = raceTrack.point[0].pos;
+            carSim._pos = Vector2Make( trackStart.x, trackStart.z );
             carSim._vel = Vector2Make( 0.0f, 0.0f );
             carSim._angularvelocity = 0.0f;
             carSim._angle = 0.0f;
@@ -366,6 +374,9 @@ int main()
                         raceTrack.point[i].pos.z );
                 }
             }
+            if (IsKeyPressed(KEY_B)) {
+                raceTrack.buildTrackMesh();
+            }
 
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
@@ -413,12 +424,16 @@ int main()
         camera.target = camTarget;
         Vector3 followDir = (Vector3){0.0, 0.0, 1.0f };
         if (Vector2Lenght( carSim._vel) > 0.0f) {
-            Vector3 followDir = Vector3Make( -carSim._vel.x, 0.0f, -carSim._vel.y );
+            followDir = Vector3Make( -carSim._vel.x, 0.0f, -carSim._vel.y );
             VectorNormalize( &followDir );
         }
+        // printf("Vel %3.2f %3.2f LEN %3.2f FollowDir: %3.2f %3.2f %3.2f\n", 
+        //     carSim._vel.x, carSim._vel.y,
+        //     followDir.x, followDir.y, followDir.z );
 
         Vector3 cameraOffset = Vector3MultScalar( followDir, 10.0f );
         cameraOffset.y = 8.0f;
+        camera.target.y += 4.0;
 
         camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
         camera.position = VectorAdd( camTarget, cameraOffset);

@@ -7,7 +7,8 @@
 #include "util.h"
 
 Track::Track() :
-	nTrackPoints(0)
+	nTrackPoints(0),
+	meshBuilt(false)
 {
 
 }
@@ -19,16 +20,27 @@ void Track::genRandom()
 	static bool usePreset = true;
 
 	if (usePreset) {
-		addTrackPoint( 0.072024, 0.603336 );
-	    addTrackPoint( 1.048974, -46.208435 );
-	    addTrackPoint( -102.838829, -135.614182 );
-	    addTrackPoint( -55.275116, -187.607513 );
-	    addTrackPoint( 76.841240, 15.792542 );
-	    addTrackPoint( 164.402313, -202.469330 );
-	    addTrackPoint( 190.208954, -64.451317 );
-	    addTrackPoint( 143.463242, -48.453033 );
-	    addTrackPoint( 72.900795, 137.979340 );
-	    addTrackPoint( -165.415070, 100.499458 );
+		// addTrackPoint( 0.072024, 0.603336 );
+	 //    addTrackPoint( 1.048974, -46.208435 );
+	 //    addTrackPoint( -102.838829, -135.614182 );
+	 //    addTrackPoint( -55.275116, -187.607513 );
+	 //    addTrackPoint( 76.841240, 15.792542 );
+	 //    addTrackPoint( 164.402313, -202.469330 );
+	 //    addTrackPoint( 190.208954, -64.451317 );
+	 //    addTrackPoint( 143.463242, -48.453033 );
+	 //    addTrackPoint( 72.900795, 137.979340 );
+	 //    addTrackPoint( -165.415070, 100.499458 );
+
+	addTrackPoint( -42.733921, 7.118019 );
+    addTrackPoint( -24.298538, -36.245270 );
+    addTrackPoint( -102.838829, -135.614182 );
+    addTrackPoint( -55.275116, -187.607513 );
+    addTrackPoint( 58.704330, -13.472721 );
+    addTrackPoint( 164.402313, -202.469330 );
+    addTrackPoint( 212.666992, -19.637169 );
+    addTrackPoint( 159.511002, -29.298012 );
+    addTrackPoint( 45.775219, 149.611786 );
+    addTrackPoint( -165.415070, 100.499458 );
 	} else {
 
 		// Generate random track for editing
@@ -53,6 +65,13 @@ void Track::addTrackPoint( float x, float z )
 	TrackPoint tp;
 	tp.pos = Vector3Make( x, 0.0, z );
 	addTrackPoint( tp );
+}
+
+void Track::drawTrack()
+{
+	if (meshBuilt) {
+		DrawModel( trackModel, (Vector3){ 0.0, 0.0, 0.0}, 1.0, (Color)WHITE );
+	}
 }
 
 void Track::drawTrackEditMode()
@@ -80,7 +99,7 @@ void Track::drawTrackEditMode()
 
 		Vector3 p = evalTrackCurve( t );
 		if ( t > 0.0) {
-			DrawLine3D( lastP, p, (Color)YELLOW );
+			DrawLine3D( lastP, p, (Color)ORANGE );
 		}
 		lastP = p;
 		t += 0.01f;
@@ -91,7 +110,70 @@ void Track::drawTrackEditMode()
 
 void Track::buildTrackMesh()
 {
-  	
+  	//Mesh LoadMeshEx(int numVertex, float *vData, float *vtData, float *vnData, Color *cData);
+    //Model LoadModelFromMesh(Mesh data, bool dynamic);                                       
+
+	int nPoints = 1000;
+    Vector3 *vert = (Vector3*)malloc( sizeof(Vector3) * nPoints * 6 );
+    Vector2 *st = (Vector2*)malloc( sizeof(Vector2) * nPoints * 6 );    
+
+    // FIXME: adaptive segments
+	float totalLen = trackParametricLength();
+	float step = totalLen / 1000.0f;
+
+	float t = 0.0;
+	float prevT;
+	int ndx = 0;
+	float texScale = -2.0;
+	Vector3 prevLeft, prevRight;
+	while (t < totalLen) {
+
+		Vector3 p = evalTrackCurve(  t );
+		Vector3 p2 = evalTrackCurve( t + 0.001 );
+		Vector3 dir = VectorSubtract( p2, p );
+		VectorNormalize( &dir );
+
+		dir = VectorCrossProduct( dir, (Vector3){ 0.0, 1.0, 0.0 } );
+		VectorNormalize( &dir );
+
+		dir = Vector3MultScalar( dir, 10.0f );
+		Vector3 right = VectorAdd( p, dir );
+		Vector3 left = VectorSubtract( p, dir );
+
+		if (t > 0.0) {
+			vert[ndx+0] = prevLeft;
+			st[ndx+0] = Vector2Make( 0.0, prevT * texScale );			
+			vert[ndx+1] = prevRight;
+			st[ndx+1] = Vector2Make( 1.0, prevT * texScale);
+			vert[ndx+2] = left;
+			st[ndx+2] = Vector2Make( 0.0, t * texScale);
+
+			vert[ndx+5] = prevRight;
+			st[ndx+5] = Vector2Make( 1.0, prevT * texScale);
+			vert[ndx+4] = left;
+			st[ndx+4] = Vector2Make( 0.0, t * texScale);
+			vert[ndx+3] = right;
+			st[ndx+3] = Vector2Make( 1.0, t * texScale );
+
+			ndx += 6;
+		}
+		prevLeft = left;
+		prevRight = right;
+		prevT = t;
+
+		t += step;
+	}
+
+	trackMesh = LoadMeshEx(ndx, (float*)vert, (float*)st, NULL /*normals*/, NULL /*Color *cData*/ );
+	trackModel = LoadModelFromMesh( trackMesh, false );
+
+	Texture2D trackTexture = LoadTexture("track1.png");
+    trackModel.material.texDiffuse = trackTexture; 
+
+	meshBuilt = true;
+
+	free(vert);
+	free(st);
 }
 
 float Track::trackParametricLength()

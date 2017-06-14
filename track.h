@@ -22,6 +22,8 @@ public:
 	void addTrackPoint( float x, float z );
 	void addTrackPoint( TrackPoint tp );
 
+	void drawTrack();
+
 	void drawTrackEditMode();
 
 	void buildTrackMesh();
@@ -38,6 +40,10 @@ public:
 											 const Vector3 & c, 
 											 const Vector3 & d, 
 											 const float time);
+
+	Mesh trackMesh;
+	Model trackModel;
+	bool meshBuilt;
 };
 
 #endif
