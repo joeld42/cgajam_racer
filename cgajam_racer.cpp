@@ -9,6 +9,8 @@
 #include "track.h"
 
 // sync tracker from librocket
+
+//#define SYNC_PLAYER
 #include "sync.h"
 
 // soloud audio
@@ -53,7 +55,7 @@ Texture2D cycleTexture;
 // ===================================================================================
 // Editor, config, display options
 bool doPixelate = true;
-bool doCGAMode = false;
+bool doCGAMode = true;
 bool editMode = false;
 
 Track raceTrack;
@@ -245,8 +247,8 @@ int main()
     RenderTexture2D pixelTarget = LoadRenderTexture(pixelWidth, pixelHeight);
     SetTextureFilter( pixelTarget.texture, FILTER_POINT );
     
-    RenderTexture2D postProcTarget = LoadRenderTexture(pixelWidth, pixelHeight);
-    SetTextureFilter( postProcTarget.texture, FILTER_POINT );    
+    //RenderTexture2D postProcTarget = LoadRenderTexture(pixelWidth, pixelHeight);
+    //SetTextureFilter( postProcTarget.texture, FILTER_POINT );    
 
     // Define the camera to look into our 3d world (position, target, up vector)
     Camera camera = {{ 4.0f, 2.0f, 4.0f }, { 0.0f, 1.8f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 60.0f };
@@ -260,10 +262,15 @@ int main()
     SetTargetFPS(60);                           // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
 
-    //soloud_music.load("turbo_electric_16pcm.wav"); 
+
+    Shader worldShader = LoadShader( (char *)"world.vs", (char *)"world.fs");
+    Shader cgaShader = LoadShader( (char *)"cga_enforce.vs", (char *)"cga_enforce.fs");
+
+
+    soloud_music.load("turbo_electric_16pcm.wav"); 
 
     // Shorter excerpt for faster load during testing..
-    soloud_music.load("turbo_electric_16pcm_excerpt.wav"); 
+    //soloud_music.load("turbo_electric_16pcm_excerpt.wav"); 
         
     // SoLoud::EchoFilter echo;
     // echo.setParams( 0.5f, 0.5f );
@@ -281,6 +288,7 @@ int main()
     raceTrack.genRandom();
 
     raceTrack.buildTrackMesh();
+    raceTrack.trackModel.material.shader = worldShader;
 
     Vector3 trackStart = raceTrack.point[0].pos;
     carSim._pos = Vector2Make( trackStart.x, trackStart.z );
@@ -288,6 +296,7 @@ int main()
     cycleMesh = LoadModel("cubecycle.obj");
     cycleTexture = LoadTexture("cubecycle.png");
     cycleMesh.material.texDiffuse = cycleTexture; 
+    cycleMesh.material.shader = worldShader;
 
     int grabPointNdx = 0;
     bool grabbed = false;
@@ -447,22 +456,24 @@ int main()
         BeginDrawing();
 
             bool frameDoPixelate = doPixelate && (!editMode);
-            bool frameDoCgaMode = doCGAMode && frameDoPixelate;
-
-            ClearBackground( (Color)BLACK);
-            if (frameDoPixelate) {
-                BeginTextureMode(pixelTarget);   // Enable drawing to texture            
-            }
+            bool frameDoCgaMode = doCGAMode && frameDoPixelate;            
 
             Camera activeCamera = camera;
             if (editMode) {
                 activeCamera = editCamera;
             }            
 
+            ClearBackground( (Color)BLACK);
+            if (frameDoPixelate) {
+                BeginTextureMode(pixelTarget);   // Enable drawing to texture            
+            }
+
 
             Begin3dMode(activeCamera);
 
+            BeginShaderMode( worldShader );
             DrawScene( &carSim );
+            EndShaderMode( );
 
             if (editMode) {
                 raceTrack.drawTrackEditMode();
@@ -475,7 +486,7 @@ int main()
 
                 ClearBackground( (Color)GREEN );
 
-                Rectangle textureRect = (Rectangle){ 0, 0, postProcTarget.texture.width, -postProcTarget.texture.height };            
+                Rectangle textureRect = (Rectangle){ 0, 0, pixelTarget.texture.width, -pixelTarget.texture.height };            
                 Rectangle screenRect = (Rectangle){ 0, 0, screenWidth, screenHeight };
                 
     //            float displayScale = 2.0;
@@ -484,8 +495,16 @@ int main()
     //            screenRect.width *= displayScale;
     //            screenRect.height *= displayScale;
 
-                DrawTexturePro( frameDoCgaMode?postProcTarget.texture:pixelTarget.texture,
-                               textureRect, screenRect, (Vector2){ 0, 0 }, 0, (Color)WHITE);            
+                if (frameDoCgaMode) {
+                    BeginShaderMode( cgaShader );
+                }
+                // DrawTexturePro( frameDoCgaMode?postProcTarget.texture:pixelTarget.texture,
+                //                textureRect, screenRect, (Vector2){ 0, 0 }, 0, (Color)WHITE);            
+                DrawTexturePro( pixelTarget.texture, textureRect, screenRect, (Vector2){ 0, 0 }, 0, (Color)WHITE);            
+                
+                if (frameDoCgaMode) {
+                   EndShaderMode();
+                }
             }
 
         EndDrawing();

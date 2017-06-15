@@ -124,8 +124,10 @@ void Track::buildTrackMesh()
 	float t = 0.0;
 	float prevT;
 	int ndx = 0;
-	float texScale = -2.0;
-	Vector3 prevLeft, prevRight;
+	float texScale = -0.05;
+	float trackLength = 0.0; 
+	float prevTrackLength = 0.0; 
+	Vector3 prevLeft, prevRight, prevP;
 	while (t < totalLen) {
 
 		Vector3 p = evalTrackCurve(  t );
@@ -138,28 +140,34 @@ void Track::buildTrackMesh()
 
 		dir = Vector3MultScalar( dir, 10.0f );
 		Vector3 right = VectorAdd( p, dir );
-		Vector3 left = VectorSubtract( p, dir );
+		Vector3 left = VectorSubtract( p, dir );		
 
 		if (t > 0.0) {
+
+			float d = VectorDistance( prevP, p );
+			trackLength += d;
+
 			vert[ndx+0] = prevLeft;
-			st[ndx+0] = Vector2Make( 0.0, prevT * texScale );			
+			st[ndx+0] = Vector2Make( 0.0, prevTrackLength * texScale );			
 			vert[ndx+1] = prevRight;
-			st[ndx+1] = Vector2Make( 1.0, prevT * texScale);
+			st[ndx+1] = Vector2Make( 1.0, prevTrackLength * texScale);
 			vert[ndx+2] = left;
-			st[ndx+2] = Vector2Make( 0.0, t * texScale);
+			st[ndx+2] = Vector2Make( 0.0, trackLength * texScale);
 
 			vert[ndx+5] = prevRight;
-			st[ndx+5] = Vector2Make( 1.0, prevT * texScale);
+			st[ndx+5] = Vector2Make( 1.0, prevTrackLength * texScale);
 			vert[ndx+4] = left;
-			st[ndx+4] = Vector2Make( 0.0, t * texScale);
+			st[ndx+4] = Vector2Make( 0.0, trackLength * texScale);
 			vert[ndx+3] = right;
-			st[ndx+3] = Vector2Make( 1.0, t * texScale );
+			st[ndx+3] = Vector2Make( 1.0, trackLength * texScale );
 
 			ndx += 6;
 		}
+		prevP = p;
 		prevLeft = left;
 		prevRight = right;
 		prevT = t;
+		prevTrackLength = trackLength;
 
 		t += step;
 	}

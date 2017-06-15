@@ -13,7 +13,7 @@ color="ffb27474">
 		<key row="19" value="0.300000" interpolation="1" />
 		<key row="23" value="0.000000" interpolation="1" />
 		<key row="24" value="0.300000" interpolation="1" />
-		<key row="27" value="0.000000" interpolation="1" />
+		<key row="27" value="1.000000" interpolation="1" />
 		<key row="28" value="0.300000" interpolation="1" />
 		<key row="31" value="0.000000" interpolation="1" />
 		<key row="32" value="0.800000" interpolation="1" />
@@ -23,7 +23,7 @@ color="ffb27474">
 		<key row="42" value="0.100000" interpolation="2" />
 		<key row="44" value="0.200000" interpolation="2" />
 		<key row="48" value="0.000000" interpolation="1" />
-		<key row="49" value="0.800000" interpolation="1" />
+		<key row="49" value="1.800000" interpolation="1" />
 		<key row="51" value="0.300000" interpolation="1" />
 		<key row="55" value="0.000000" interpolation="1" />
 		<key row="56" value="0.300000" interpolation="1" />
