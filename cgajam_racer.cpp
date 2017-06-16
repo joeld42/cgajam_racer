@@ -7,6 +7,7 @@
 #include "carsim.h"
 #include "util.h"
 #include "track.h"
+#include "dither.h"
 
 // sync tracker from librocket
 
@@ -59,12 +60,21 @@ Vector3 torusAxisRaw = { 0.0, 1.0, 0.0 };
 Vector3 torusAxis = { 0.0, 1.0, 0.0 };
 float torusAngle = 0.0;
 
+// ===================================================================================
+//  Dither Effect
+// ===================================================================================
+GLuint texPalette;
+GLuint texBayerDither;
+
+float ditherStrength = 0.5;
 
 // ===================================================================================
 // Editor, config, display options
+// ===================================================================================
 bool doPixelate = true;
 bool doCGAMode = true;
 bool editMode = false;
+bool showMultipass = true;
 
 Track raceTrack;
 
@@ -232,10 +242,51 @@ void DrawScene( CarModel *carSim, Shader shader )
     torusModel.material.shader = shader;
     DrawModelEx( torusModel, torusPos, torusAxis, torusAngle, (Vector3){3.0f, 3.0f, 3.0f}, (Color)WHITE );
 
+}
 
+void EnableDitherEffect( Shader &cgaShader )
+{
+        // directly bind palette shader
+    static GLint samplerPally = -2;
+    static GLint samplerDither = -2;
+    static GLint ditherStrengthParam;
+    CHECKGL("start");
+    if (samplerPally < -1) {
+        
+        glUseProgram( cgaShader.id);
+        
+        samplerPally = glGetUniformLocation( cgaShader.id, "pally" );
+        CHECKGL("get uniform");
+        printf("pixelize shader prog %d samplerId %d\n", cgaShader.id, samplerPally );
+        
+        samplerDither = glGetUniformLocation( cgaShader.id, "dither" );
+        
+        ditherStrengthParam = glGetUniformLocation( cgaShader.id, "ditherStrength" );
+    }
     
-    
+    if (samplerPally >= 0) {
+        glUseProgram(cgaShader.id);
+        CHECKGL("use shader");
+        
+        glUniform1i( samplerPally, 3 );
+        CHECKGL("set pally sampler");
+        
+        glUniform1i( samplerDither, 4 );
+        CHECKGL("set dither sampler");
+        
+        glUniform1f( ditherStrengthParam, ditherStrength );
 
+        
+        glActiveTexture( GL_TEXTURE3 );
+        glBindTexture( GL_TEXTURE_3D, texPalette );
+        CHECKGL("bind pally texture");
+        
+        glActiveTexture( GL_TEXTURE4 );
+        glBindTexture( GL_TEXTURE_2D, texBayerDither );
+        CHECKGL("bind dither texture");
+        
+        glActiveTexture( GL_TEXTURE0 );
+    }
 
 }
 
@@ -329,6 +380,10 @@ int main()
     int grabPointNdx = 0;
     bool grabbed = false;
 
+    // Set up pixelate filter
+    texPalette = MakePaletteTexture(64);
+    texBayerDither = MakeBayerDitherTexture();
+
     // Main game loop
     while (!WindowShouldClose())                // Detect window close button or ESC key
     {
@@ -368,6 +423,9 @@ int main()
         }
         if (IsKeyPressed(KEY_NINE)) {
             doPixelate = !doPixelate;
+        }
+        if (IsKeyPressed(KEY_EIGHT)) {
+            showMultipass = !showMultipass;
         }
         if (IsKeyPressed(KEY_ZERO)) {
             doCGAMode = !doCGAMode;
@@ -493,7 +551,7 @@ int main()
 
         // Draw
         //----------------------------------------------------------------------------------
-        glLineWidth(4.0f);
+        CHECKGL( "aaa");
         BeginDrawing();
 
             bool frameDoPixelate = doPixelate && (!editMode);
@@ -504,6 +562,7 @@ int main()
                 activeCamera = editCamera;
             }            
 
+            CHECKGL( "aaa");
             ClearBackground( (Color)ORANGE );
 
             BeginTextureMode(mtlModeTarget);            
@@ -513,12 +572,16 @@ int main()
             DrawScene( &carSim, worldMtlShader );
             EndShaderMode( );
 
+            CHECKGL( "aaa");
+
             End3dMode();
-            EndTextureMode();
+            EndTextureMode();            
             
+            CHECKGL( "aaa");
             if (frameDoPixelate) {
                 BeginTextureMode(pixelTarget);   // Enable drawing to texture            
             }
+            CHECKGL( "aaa");
 
             ClearBackground( (Color)BLACK);
 
@@ -548,16 +611,20 @@ int main()
     //            screenRect.width *= displayScale;
     //            screenRect.height *= displayScale;
 
-                // if (show buffers...)
-                Rectangle previewRect1 = (Rectangle){ 0, 0, screenWidth/2, screenHeight/2 };
-                Rectangle previewRect2 = (Rectangle){ 0, screenHeight/2, screenWidth/2, screenHeight/2 }; 
-                screenRect = (Rectangle){ screenWidth/2, 0, screenWidth/2, screenHeight/2 }; 
+                if (showMultipass) {
+                    Rectangle previewRect1 = (Rectangle){ 0, 0, screenWidth/2, screenHeight/2 };
+                    Rectangle previewRect2 = (Rectangle){ 0, screenHeight/2, screenWidth/2, screenHeight/2 }; 
 
-                DrawTexturePro( pixelTarget.texture, textureRect, previewRect1, (Vector2){ 0, 0 }, 0, (Color)WHITE);            
-                DrawTexturePro( mtlModeTarget.texture, textureRect, previewRect2, (Vector2){ 0, 0 }, 0, (Color)WHITE);            
+                    // Modify ScreenRect for debug
+                    screenRect = (Rectangle){ screenWidth/2, 0, screenWidth/2, screenHeight/2 }; 
+
+                    DrawTexturePro( pixelTarget.texture, textureRect, previewRect1, (Vector2){ 0, 0 }, 0, (Color)WHITE);            
+                    DrawTexturePro( mtlModeTarget.texture, textureRect, previewRect2, (Vector2){ 0, 0 }, 0, (Color)WHITE);            
+                }
 
                 if (frameDoCgaMode) {
                     BeginShaderMode( cgaShader );
+                    EnableDitherEffect( cgaShader );
                 }
                 
                 DrawTexturePro( pixelTarget.texture, textureRect, screenRect, (Vector2){ 0, 0 }, 0, (Color)WHITE);            

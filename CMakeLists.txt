@@ -52,6 +52,7 @@ add_executable (cga_racer
 				cgajam_racer.cpp
 				carsim.cpp
 				track.cpp
+				dither.cpp
 				)
 
 target_link_libraries( cga_racer ${LIBS} )
