@@ -22,7 +22,7 @@ public:
 	void addTrackPoint( float x, float z );
 	void addTrackPoint( TrackPoint tp );
 
-	void drawTrack();
+	void drawTrack( Shader &shader );
 
 	void drawTrackEditMode();
 

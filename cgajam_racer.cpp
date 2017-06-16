@@ -66,7 +66,10 @@ float torusAngle = 0.0;
 GLuint texPalette;
 GLuint texBayerDither;
 
-float ditherStrength = 0.5;
+Texture2D gradientMapTexture;
+
+Texture2D ditherTestTexture;
+Texture2D ditherMtlTestTexture;
 
 // ===================================================================================
 // Editor, config, display options
@@ -75,6 +78,7 @@ bool doPixelate = true;
 bool doCGAMode = true;
 bool editMode = false;
 bool showMultipass = true;
+bool gradTest = false;
 
 Track raceTrack;
 
@@ -220,7 +224,7 @@ void DrawScene( CarModel *carSim, Shader shader )
     DrawGroundSquares();
     DrawShapes();
 
-    raceTrack.drawTrack();
+    raceTrack.drawTrack( shader );
 
     // Draw the car
     Vector3 carPos = {0};
@@ -238,9 +242,9 @@ void DrawScene( CarModel *carSim, Shader shader )
     // RLAPI void DrawModelEx(Model model, Vector3 position, Vector3 rotationAxis,
     //                    float rotationAngle, Vector3 scale, Color tint);                                 // Draw a model with extended parameters
 
-    Vector3 torusPos = VectorAdd( carPos, (Vector3){ 0.0, 5.0, 0.0});
+    Vector3 torusPos = VectorAdd( carPos, (Vector3){ 0.0, 2.5, 0.0});
     torusModel.material.shader = shader;
-    DrawModelEx( torusModel, torusPos, torusAxis, torusAngle, (Vector3){3.0f, 3.0f, 3.0f}, (Color)WHITE );
+    DrawModelEx( torusModel, torusPos, torusAxis, torusAngle, (Vector3){5.0f, 5.0f, 5.0f}, (Color)WHITE );
 
 }
 
@@ -249,7 +253,9 @@ void EnableDitherEffect( Shader &cgaShader )
         // directly bind palette shader
     static GLint samplerPally = -2;
     static GLint samplerDither = -2;
-    static GLint ditherStrengthParam;
+    static GLint samplerMask = -2;
+    static GLint samplerGradientMap = -2;
+
     CHECKGL("start");
     if (samplerPally < -1) {
         
@@ -260,21 +266,31 @@ void EnableDitherEffect( Shader &cgaShader )
         printf("pixelize shader prog %d samplerId %d\n", cgaShader.id, samplerPally );
         
         samplerDither = glGetUniformLocation( cgaShader.id, "dither" );
+
+        samplerMask = glGetUniformLocation( cgaShader.id, "mtlmask" );
         
-        ditherStrengthParam = glGetUniformLocation( cgaShader.id, "ditherStrength" );
+        samplerGradientMap = glGetUniformLocation( cgaShader.id, "gradientmap" );
+
+        //ditherStrengthParam = glGetUniformLocation( cgaShader.id, "ditherStrength" );
     }
     
     if (samplerPally >= 0) {
         glUseProgram(cgaShader.id);
         CHECKGL("use shader");
         
+        glUniform1i( samplerGradientMap, 1 );
+        CHECKGL("set gradientmap sampler");
+
+        glUniform1i( samplerMask, 2 );
+        CHECKGL("set mtlmask sampler");
+
         glUniform1i( samplerPally, 3 );
         CHECKGL("set pally sampler");
         
         glUniform1i( samplerDither, 4 );
         CHECKGL("set dither sampler");
         
-        glUniform1f( ditherStrengthParam, ditherStrength );
+        //glUniform1f( ditherStrengthParam, ditherStrength );
 
         
         glActiveTexture( GL_TEXTURE3 );
@@ -368,14 +384,24 @@ int main()
     cycleMesh = LoadModel("cubecycle.obj");
     cycleTexture = LoadTexture("cubecycle.png");
     cycleMesh.material.texDiffuse = cycleTexture; 
+
     //cycleMesh.material.shader = worldShader;
 
-    torusModel = LoadModel("torus.obj");
-    torusTexture = LoadTexture( "torus.png");
-    torusMtlmapTexture = LoadTexture( "torus_mtl.png");
+    torusModel = LoadModel("test_sphere.obj");
+    torusTexture = LoadTexture( "sphere_col.png");
+    torusMtlmapTexture = LoadTexture( "sphere_mtl.png");
     torusModel.material.texDiffuse = torusTexture;
     torusModel.material.texSpecular = torusMtlmapTexture;
     //torusModel.material.shader = worldShader;
+
+    // TMP
+    cycleMesh.material.texSpecular = torusMtlmapTexture; 
+
+    ditherTestTexture = LoadTexture( "gradtest.png");
+    ditherMtlTestTexture = LoadTexture("gradtest_mtl.png");
+
+    // IMPORTANT for cgamode shader
+    gradientMapTexture = LoadTexture("gradientmap.png");
 
     int grabPointNdx = 0;
     bool grabbed = false;
@@ -426,6 +452,9 @@ int main()
         }
         if (IsKeyPressed(KEY_EIGHT)) {
             showMultipass = !showMultipass;
+        }
+        if (IsKeyPressed(KEY_SEVEN)) {
+            gradTest = !gradTest;
         }
         if (IsKeyPressed(KEY_ZERO)) {
             doCGAMode = !doCGAMode;
@@ -518,12 +547,15 @@ int main()
             time += dt;
             carSim.Update( dt, throttle, turn, brake );
 
-            torusAxisRaw.x = sin( time );
-            torusAxisRaw.y = sin( time * 1.23 );
-            torusAxisRaw.z = sin( time * 1.78 );
+            if (1) {
+                // random spin axis
+                torusAxisRaw.x = sin( time );
+                torusAxisRaw.y = sin( time * 1.23 );
+                torusAxisRaw.z = sin( time * 1.78 );
 
-            torusAxis = torusAxisRaw;
-            VectorNormalize( &torusAxis );
+                torusAxis = torusAxisRaw;
+                VectorNormalize( &torusAxis );
+            }
 
             torusAngle += 0.3f;
         }
@@ -563,7 +595,7 @@ int main()
             }            
 
             CHECKGL( "aaa");
-            ClearBackground( (Color)ORANGE );
+            ClearBackground( (Color)BLACK );
 
             BeginTextureMode(mtlModeTarget);            
             Begin3dMode(activeCamera);
@@ -602,7 +634,7 @@ int main()
 
                 ClearBackground( (Color)GREEN );
 
-                Rectangle textureRect = (Rectangle){ 0, 0, pixelTarget.texture.width, -pixelTarget.texture.height };            
+                Rectangle textureRect = (Rectangle){ 0, 0, pixelTarget.texture.width, -pixelTarget.texture.height };
                 Rectangle screenRect = (Rectangle){ 0, 0, screenWidth, screenHeight };
                 
     //            float displayScale = 2.0;
@@ -625,9 +657,24 @@ int main()
                 if (frameDoCgaMode) {
                     BeginShaderMode( cgaShader );
                     EnableDitherEffect( cgaShader );
+
+                    glActiveTexture( GL_TEXTURE1 );
+                    glBindTexture( GL_TEXTURE_2D, gradientMapTexture.id );
+                    CHECKGL("bind gradientMap texture");
+
+                    glActiveTexture( GL_TEXTURE2 );
+                    glBindTexture( GL_TEXTURE_2D, gradTest?ditherMtlTestTexture.id:mtlModeTarget.texture.id );
+                    CHECKGL("bind mtltest texture");
+        
+                    glActiveTexture( GL_TEXTURE0 );
                 }
                 
-                DrawTexturePro( pixelTarget.texture, textureRect, screenRect, (Vector2){ 0, 0 }, 0, (Color)WHITE);            
+                if (gradTest) {
+                    textureRect = (Rectangle){ 0, 0, ditherTestTexture.width, ditherTestTexture.height };
+                    DrawTexturePro( ditherTestTexture, textureRect, screenRect, (Vector2){ 0, 0 }, 0, (Color)WHITE);
+                } else {
+                    DrawTexturePro( pixelTarget.texture, textureRect, screenRect, (Vector2){ 0, 0 }, 0, (Color)WHITE);
+                }
                 
 
                 if (frameDoCgaMode) {

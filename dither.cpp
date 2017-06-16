@@ -44,6 +44,13 @@ Color arnePalette[16] = {
     { 178, 220, 239, 255 },
 };
 
+Color cgaPalette[4] = {
+    { 0, 0, 0, 255 },
+    { 85, 255, 255, 255 },
+    { 255, 85, 255, 255 },
+    { 255, 255, 255, 255 },
+    };
+
 // Bayer dither pattern
 // https://en.wikipedia.org/wiki/Ordered_dithering
 unsigned char bayerDither[16] = {
@@ -115,15 +122,15 @@ GLuint MakePaletteTexture( int size ) {
                 
                 int bestIndex = 0;
                 float bestDistance = 0.0;
-                for (int pal=0; pal < 16; pal++) {
-                    float d = ColorDistance2( arnePalette[pal], cellc );
+                for (int pal=0; pal < 4; pal++) {
+                    float d = ColorDistance2( cgaPalette[pal], cellc );
                     if ((pal==0)||(d < bestDistance)) {
                         bestIndex = pal;
                         bestDistance = d;
                     }
                 }
                 
-                Color palColor = arnePalette[bestIndex];
+                Color palColor = cgaPalette[bestIndex];
                 paldata[ndx + 0] = palColor.r;
                 paldata[ndx + 1] = palColor.g;
                 paldata[ndx + 2] = palColor.b;
@@ -155,7 +162,7 @@ GLuint MakePaletteTexture( int size ) {
     glTexParameterf( GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
     
     free (paldata);
-        
+
     printf("Palette texture is texid %d\n", texPalette );
     return texPalette;
 }

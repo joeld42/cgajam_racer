@@ -67,9 +67,10 @@ void Track::addTrackPoint( float x, float z )
 	addTrackPoint( tp );
 }
 
-void Track::drawTrack()
+void Track::drawTrack( Shader &shader )
 {
 	if (meshBuilt) {
+		trackModel.material.shader = shader;
 		DrawModel( trackModel, (Vector3){ 0.0, 0.0, 0.0}, 1.0, (Color)WHITE );
 	}
 }
@@ -115,6 +116,7 @@ void Track::buildTrackMesh()
 
 	int nPoints = 1000;
     Vector3 *vert = (Vector3*)malloc( sizeof(Vector3) * nPoints * 6 );
+    Vector3 *nrm = (Vector3*)malloc( sizeof(Vector3) * nPoints * 6 );
     Vector2 *st = (Vector2*)malloc( sizeof(Vector2) * nPoints * 6 );    
 
     // FIXME: adaptive segments
@@ -161,6 +163,10 @@ void Track::buildTrackMesh()
 			vert[ndx+3] = right;
 			st[ndx+3] = Vector2Make( 1.0, trackLength * texScale );
 
+			for (int j=0; j < 6; j++) {
+				nrm[ndx+j] = (Vector3){0.0, 1.0, 0.0};
+			}
+
 			ndx += 6;
 		}
 		prevP = p;
@@ -172,7 +178,7 @@ void Track::buildTrackMesh()
 		t += step;
 	}
 
-	trackMesh = LoadMeshEx(ndx, (float*)vert, (float*)st, NULL /*normals*/, NULL /*Color *cData*/ );
+	trackMesh = LoadMeshEx(ndx, (float*)vert, (float*)st, (float*)nrm, NULL /*Color *cData*/ );
 	trackModel = LoadModelFromMesh( trackMesh, false );
 
 	Texture2D trackTexture = LoadTexture("track1.png");
