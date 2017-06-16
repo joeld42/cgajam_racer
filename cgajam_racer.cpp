@@ -52,6 +52,14 @@ const sync_track *syncGridSize = NULL;
 Model cycleMesh;
 Texture2D cycleTexture;
 
+Model torusModel;
+Texture2D torusTexture;
+Texture2D torusMtlmapTexture;
+Vector3 torusAxisRaw = { 0.0, 1.0, 0.0 };
+Vector3 torusAxis = { 0.0, 1.0, 0.0 };
+float torusAngle = 0.0;
+
+
 // ===================================================================================
 // Editor, config, display options
 bool doPixelate = true;
@@ -197,7 +205,7 @@ void DrawShapes()
     DrawSphereWires((Vector3){-1.0f, 1.0f, -2.0f}, 1.01f, 16, 16, (Color)CGA_BLACK);
 }
 
-void DrawScene( CarModel *carSim )
+void DrawScene( CarModel *carSim, Shader shader )
 {
     DrawGroundSquares();
     DrawShapes();
@@ -213,11 +221,20 @@ void DrawScene( CarModel *carSim )
     DrawCube( carPos, 0.5f, 0.5f, 0.5f, (Color)CGA_MAGENTA );
     DrawCubeWires(carPos, 0.51f, 0.51f, 0.51f, (Color)RED );
 
+    cycleMesh.material.shader = shader;
     DrawModelEx( cycleMesh, carPos, (Vector3){0.0f, 1.0f, 0.0f},
                     -RAD2DEG * (carSim->_angle), (Vector3){1.0f, 1.0f, 1.0f}, 
                     (Color)WHITE );
     // RLAPI void DrawModelEx(Model model, Vector3 position, Vector3 rotationAxis,
     //                    float rotationAngle, Vector3 scale, Color tint);                                 // Draw a model with extended parameters
+
+    Vector3 torusPos = VectorAdd( carPos, (Vector3){ 0.0, 5.0, 0.0});
+    torusModel.material.shader = shader;
+    DrawModelEx( torusModel, torusPos, torusAxis, torusAngle, (Vector3){3.0f, 3.0f, 3.0f}, (Color)WHITE );
+
+
+    
+    
 
 
 }
@@ -247,6 +264,9 @@ int main()
     RenderTexture2D pixelTarget = LoadRenderTexture(pixelWidth, pixelHeight);
     SetTextureFilter( pixelTarget.texture, FILTER_POINT );
     
+    RenderTexture2D mtlModeTarget = LoadRenderTexture(pixelWidth, pixelHeight);
+    SetTextureFilter( mtlModeTarget.texture, FILTER_POINT );
+
     //RenderTexture2D postProcTarget = LoadRenderTexture(pixelWidth, pixelHeight);
     //SetTextureFilter( postProcTarget.texture, FILTER_POINT );    
 
@@ -264,6 +284,7 @@ int main()
 
 
     Shader worldShader = LoadShader( (char *)"world.vs", (char *)"world.fs");
+    Shader worldMtlShader = LoadShader( (char *)"world.vs", (char *)"world_mtl.fs");
     Shader cgaShader = LoadShader( (char *)"cga_enforce.vs", (char *)"cga_enforce.fs");
 
 
@@ -288,7 +309,7 @@ int main()
     raceTrack.genRandom();
 
     raceTrack.buildTrackMesh();
-    raceTrack.trackModel.material.shader = worldShader;
+    //raceTrack.trackModel.material.shader = worldShader;
 
     Vector3 trackStart = raceTrack.point[0].pos;
     carSim._pos = Vector2Make( trackStart.x, trackStart.z );
@@ -296,7 +317,14 @@ int main()
     cycleMesh = LoadModel("cubecycle.obj");
     cycleTexture = LoadTexture("cubecycle.png");
     cycleMesh.material.texDiffuse = cycleTexture; 
-    cycleMesh.material.shader = worldShader;
+    //cycleMesh.material.shader = worldShader;
+
+    torusModel = LoadModel("torus.obj");
+    torusTexture = LoadTexture( "torus.png");
+    torusMtlmapTexture = LoadTexture( "torus_mtl.png");
+    torusModel.material.texDiffuse = torusTexture;
+    torusModel.material.texSpecular = torusMtlmapTexture;
+    //torusModel.material.shader = worldShader;
 
     int grabPointNdx = 0;
     bool grabbed = false;
@@ -426,7 +454,20 @@ int main()
         }
 
         if (!editMode) {
-            carSim.Update( 1.0f/60.0f, throttle, turn, brake );
+            static float time = 0.0;
+            float dt = 1.0f/60.0f;
+
+            time += dt;
+            carSim.Update( dt, throttle, turn, brake );
+
+            torusAxisRaw.x = sin( time );
+            torusAxisRaw.y = sin( time * 1.23 );
+            torusAxisRaw.z = sin( time * 1.78 );
+
+            torusAxis = torusAxisRaw;
+            VectorNormalize( &torusAxis );
+
+            torusAngle += 0.3f;
         }
 
         Vector3 camTarget = Vector3Make( carSim._pos.x, 0.0f, carSim._pos.y );
@@ -463,16 +504,28 @@ int main()
                 activeCamera = editCamera;
             }            
 
-            ClearBackground( (Color)BLACK);
+            ClearBackground( (Color)ORANGE );
+
+            BeginTextureMode(mtlModeTarget);            
+            Begin3dMode(activeCamera);
+            //DrawSphere( (Vector3){0.0, 0.0, 0.0f }, 1.0f, (Color)LIME );
+            BeginShaderMode( worldMtlShader );
+            DrawScene( &carSim, worldMtlShader );
+            EndShaderMode( );
+
+            End3dMode();
+            EndTextureMode();
+            
             if (frameDoPixelate) {
                 BeginTextureMode(pixelTarget);   // Enable drawing to texture            
             }
 
+            ClearBackground( (Color)BLACK);
 
             Begin3dMode(activeCamera);
 
             BeginShaderMode( worldShader );
-            DrawScene( &carSim );
+            DrawScene( &carSim, worldShader );
             EndShaderMode( );
 
             if (editMode) {
@@ -495,17 +548,27 @@ int main()
     //            screenRect.width *= displayScale;
     //            screenRect.height *= displayScale;
 
+                // if (show buffers...)
+                Rectangle previewRect1 = (Rectangle){ 0, 0, screenWidth/2, screenHeight/2 };
+                Rectangle previewRect2 = (Rectangle){ 0, screenHeight/2, screenWidth/2, screenHeight/2 }; 
+                screenRect = (Rectangle){ screenWidth/2, 0, screenWidth/2, screenHeight/2 }; 
+
+                DrawTexturePro( pixelTarget.texture, textureRect, previewRect1, (Vector2){ 0, 0 }, 0, (Color)WHITE);            
+                DrawTexturePro( mtlModeTarget.texture, textureRect, previewRect2, (Vector2){ 0, 0 }, 0, (Color)WHITE);            
+
                 if (frameDoCgaMode) {
                     BeginShaderMode( cgaShader );
                 }
-                // DrawTexturePro( frameDoCgaMode?postProcTarget.texture:pixelTarget.texture,
-                //                textureRect, screenRect, (Vector2){ 0, 0 }, 0, (Color)WHITE);            
+                
                 DrawTexturePro( pixelTarget.texture, textureRect, screenRect, (Vector2){ 0, 0 }, 0, (Color)WHITE);            
                 
+
                 if (frameDoCgaMode) {
                    EndShaderMode();
                 }
             }
+
+            DrawFPS(15, screenHeight - 20);
 
         EndDrawing();
         //----------------------------------------------------------------------------------

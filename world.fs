@@ -21,6 +21,6 @@ void main()
     // NOTE: Implement here your fragment shader code
     
     finalColor = texelColor*colDiffuse;
-    finalColor = vec4( finalColor.b, 1.0, finalColor.b * 0.5, finalColor.a );
+    //finalColor = vec4( finalColor.b, 1.0, finalColor.b * 0.5, finalColor.a );
 }
 
