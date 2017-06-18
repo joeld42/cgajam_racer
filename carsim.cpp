@@ -27,14 +27,18 @@ const float CAR_LENGTH = 3.0; // m, must be > wheelbase
 const float CAR_WHEELLENGTH = 0.7f;
 const float CAR_WHEELWIDTH = 0.3f;
 
-const float DRAG        = 5.0f;     /* factor for air resistance (drag)         */
+//const float DRAG        = 5.0f;     /* factor for air resistance (drag)         */
+const float DRAG        = 7.0f;     /* factor for air resistance (drag)         */
+//const float RESISTANCE  = 30.0f;    /* factor for rolling resistance */
 const float RESISTANCE  = 30.0f;    /* factor for rolling resistance */
 const float CA_R        = -5.20f;   /* cornering stiffness */
 const float CA_F        = -5.0f;    /* cornering stiffness */
 //const float MAX_GRIP    = 2.0f;     /* maximum (normalised) friction force, =diameter of friction circle */
 const float MAX_GRIP    = 4.0f;     /* maximum (normalised) friction force, =diameter of friction circle */
 
-const float THROTTLE = (100.0f);
+// const float THROTTLE = (100.0f);
+const float THROTTLE = (1500.0f);
+
 const float BRAKE = (250.0f);
 const float MAX_STEERANGLE = (30.0f); // degrees
 

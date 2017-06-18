@@ -235,16 +235,17 @@ void DrawScene( CarModel *carSim, Shader shader )
     DrawCube( carPos, 0.5f, 0.5f, 0.5f, (Color)CGA_MAGENTA );
     DrawCubeWires(carPos, 0.51f, 0.51f, 0.51f, (Color)RED );
 
+    // NOTES:
+    // engine Pos 
+
     cycleMesh.material.shader = shader;
     DrawModelEx( cycleMesh, carPos, (Vector3){0.0f, 1.0f, 0.0f},
                     -RAD2DEG * (carSim->_angle), (Vector3){1.0f, 1.0f, 1.0f}, 
                     (Color)WHITE );
-    // RLAPI void DrawModelEx(Model model, Vector3 position, Vector3 rotationAxis,
-    //                    float rotationAngle, Vector3 scale, Color tint);                                 // Draw a model with extended parameters
-
-    Vector3 torusPos = VectorAdd( carPos, (Vector3){ 0.0, 2.5, 0.0});
-    torusModel.material.shader = shader;
-    DrawModelEx( torusModel, torusPos, torusAxis, torusAngle, (Vector3){5.0f, 5.0f, 5.0f}, (Color)WHITE );
+    
+    // Vector3 torusPos = VectorAdd( carPos, (Vector3){ 0.0, 0.0, 0.0});
+    // torusModel.material.shader = shader;
+    // DrawModelEx( torusModel, torusPos, torusAxis, torusAngle, (Vector3){3.0f, 3.0f, 3.0f}, (Color)WHITE );
 
 }
 
@@ -381,21 +382,19 @@ int main()
     Vector3 trackStart = raceTrack.point[0].pos;
     carSim._pos = Vector2Make( trackStart.x, trackStart.z );
 
-    cycleMesh = LoadModel("cubecycle.obj");
-    cycleTexture = LoadTexture("cubecycle.png");
+    cycleMesh = LoadModel("cycle1.obj");
+    cycleTexture = LoadTexture("cycle_col.png");
+    cycleMesh.material.texSpecular = LoadTexture("cycle_maps.png");; 
     cycleMesh.material.texDiffuse = cycleTexture; 
 
     //cycleMesh.material.shader = worldShader;
 
-    torusModel = LoadModel("test_sphere.obj");
-    torusTexture = LoadTexture( "sphere_col.png");
-    torusMtlmapTexture = LoadTexture( "sphere_mtl.png");
+    torusModel = LoadModel("test_obj_smooth.obj");
+    torusTexture = LoadTexture( "testobj_color.png");
+    torusMtlmapTexture = LoadTexture( "testobj_maps.png");
     torusModel.material.texDiffuse = torusTexture;
     torusModel.material.texSpecular = torusMtlmapTexture;
     //torusModel.material.shader = worldShader;
-
-    // TMP
-    cycleMesh.material.texSpecular = torusMtlmapTexture; 
 
     ditherTestTexture = LoadTexture( "gradtest.png");
     ditherMtlTestTexture = LoadTexture("gradtest_mtl.png");
@@ -557,7 +556,7 @@ int main()
                 VectorNormalize( &torusAxis );
             }
 
-            torusAngle += 0.3f;
+            torusAngle += 0.3f;            
         }
 
         Vector3 camTarget = Vector3Make( carSim._pos.x, 0.0f, carSim._pos.y );
