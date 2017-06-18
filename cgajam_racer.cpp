@@ -79,6 +79,7 @@ bool doCGAMode = true;
 bool editMode = false;
 bool showMultipass = true;
 bool gradTest = false;
+bool paused = false;
 
 Track raceTrack;
 
@@ -438,6 +439,9 @@ int main()
         } 
 
         // DBG/Edit keys
+        if (IsKeyPressed(KEY_P)) {
+            paused = !paused;
+        }
         if (IsKeyPressed(KEY_Z)) {
             // DBG reset
             Vector3 trackStart = raceTrack.point[0].pos;
@@ -543,8 +547,10 @@ int main()
             static float time = 0.0;
             float dt = 1.0f/60.0f;
 
-            time += dt;
-            carSim.Update( dt, throttle, turn, brake );
+            if (!paused) {
+                time += dt;
+                carSim.Update( dt, throttle, turn, brake );
+            }
 
             if (1) {
                 // random spin axis
@@ -631,7 +637,7 @@ int main()
             if (frameDoPixelate) {
                 EndTextureMode();
 
-                ClearBackground( (Color)GREEN );
+                ClearBackground( (Color)DARKBLUE );
 
                 Rectangle textureRect = (Rectangle){ 0, 0, pixelTarget.texture.width, -pixelTarget.texture.height };
                 Rectangle screenRect = (Rectangle){ 0, 0, screenWidth, screenHeight };
@@ -680,6 +686,9 @@ int main()
                    EndShaderMode();
                 }
             }
+
+            Rectangle graphRect = { screenWidth/2, screenHeight/2, screenWidth/2, 50 };
+            DrawPhysicsGraph( &(carSim._graphSpeed), graphRect );
 
             DrawFPS(15, screenHeight - 20);
 

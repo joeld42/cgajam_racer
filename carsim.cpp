@@ -1,5 +1,8 @@
 #include <raylib.h>
 #include <math.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 
 #include "util.h"
 #include "carsim.h"
@@ -54,6 +57,70 @@ CarModel::CarModel()
 
 	_front_slip = false;
 	_rear_slip = false;
+
+	InitPhysicsGraph( &_graphSpeed );
+}
+
+void InitPhysicsGraph( PhysicsGraph *g )
+{
+	memset( g, sizeof(PhysicsGraph), 0 );
+}
+
+void DrawPhysicsGraph( PhysicsGraph *g, Rectangle rect )
+{
+	Color bg = (Color)DARKBLUE;
+	//DrawRectangleRec( rect, bg );
+	DrawRectangleLines( rect.x, rect.y, rect.width, rect.height, (Color)SKYBLUE );
+
+	float minVal = 0.0;
+	float maxVal = 100.0;
+	for (int i=0; i < g->numHistory; i++) {
+		if (g->history[i] < minVal) {
+			minVal = g->history[i];
+		}
+
+		if (g->history[i] > maxVal) {
+			maxVal = g->history[i];
+		}
+	}
+	float extent = maxVal - minVal;
+	if (extent < 0.0001) {
+		return;
+	}
+
+	float step = rect.width / (float)g->numHistory;	
+	for (int i=0; i < g->numHistory-1; i++) {
+		float val = 1.0 - ((g->history[i] - minVal) / extent);
+		float val2 = 1.0 - ((g->history[i+1] - minVal) / extent);
+		DrawLine( rect.x + (i*step), rect.y + val*rect.height,
+				  rect.x + ((i+1)*step), rect.y + val2*rect.height,
+				  (Color)GOLD );
+
+	}
+
+	char buff[200];
+	sprintf(buff, "%3.2f", g->history[g->numHistory-1]);
+	DrawText( buff, rect.x+2, rect.y+2, 12, (Color)WHITE );
+
+	sprintf(buff, "%3.2f", maxVal);
+	DrawText( buff, rect.x + rect.width - 50, rect.y+2, 12, (Color)WHITE );
+
+	sprintf(buff, "%3.2f", minVal);
+	DrawText( buff, rect.x + rect.width - 50, rect.y + rect.height - 15, 12, (Color)WHITE );
+
+}
+
+void UpdatePhysicsGraph( PhysicsGraph *g, float val )
+{
+	if (g->numHistory > 0) {
+		g->numHistory--;
+		for (int i=0; i < g->numHistory; i++) {
+			g->history[i] = g->history[i+1];
+		}
+	}
+	while (g->numHistory < (MAX_HISTORY-1) ) {
+		g->history[g->numHistory++] = val;
+	}
 }
 
 void CarModel::Update( float dt, float throttle, float steer, bool brake )
@@ -204,5 +271,12 @@ void CarModel::Update( float dt, float throttle, float steer, bool brake )
 		g_carSim.angle = 0.0f;
 	}
 #endif
+
+	// Update graphs
+
+	// convert m/s to mph
+	float speed = Vector2Lenght( _vel ) * 2.23694;
+	UpdatePhysicsGraph( &_graphSpeed, speed );
+
 
 }

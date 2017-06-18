@@ -1,5 +1,20 @@
 #include <raylib.h>
 
+#define MAX_HISTORY (100)
+struct PhysicsGraph
+{
+	int numHistory;
+	float history[MAX_HISTORY];
+	float maxVal;
+	float minVal;
+	float defaultMinVal;
+	float defaultMaxVal;
+};
+
+void InitPhysicsGraph( PhysicsGraph *g );
+void UpdatePhysicsGraph( PhysicsGraph *g, float val );
+void DrawPhysicsGraph( PhysicsGraph *g, Rectangle rect );
+
 // Dummy car sim for prototype .. based on Marco Monster's 
 // Car Sim for games, 
 struct CarModel 
@@ -25,5 +40,7 @@ struct CarModel
 	CarModel();	
 	
 	void Update( float dt, float throttle, float steer, bool brake );
+
+	PhysicsGraph _graphSpeed;
 };
 
