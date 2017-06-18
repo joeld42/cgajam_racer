@@ -7,7 +7,6 @@ include_directories(
 	/Users/joeld/Toolkits/rocket/external/rocket/lib	
 	/Users/joeld/Toolkits/soloud/include/
 	/usr/local/include
-	${CMAKE_SOURCE_DIR}/imgui
 )
 
 link_directories(
@@ -28,27 +27,7 @@ set ( LIBS ${LIBS}
 		soloud_static
       )
 
-set (IMGUI_SRCS
-		imgui/gl3w.h
-		imgui/glcorearb.h
-		imgui/imconfig.h
-		imgui/imgui.h
-		imgui/imgui_impl_glfw_gl3.h
-		imgui/imgui_internal.h
-		imgui/stb_rect_pack.h
-		imgui/stb_textedit.h
-		imgui/stb_truetype.h
-		imgui/stb_image.h
-		imgui/stb_image_write.h
-
-		imgui/gl3w.c
-		imgui/imgui.cpp
-		imgui/imgui_draw.cpp
-		imgui/imgui_impl_glfw_gl3.cpp
-	)
-
 add_executable (cga_racer 
-				${IMGUI_SRCS}
 				cgajam_racer.cpp
 				carsim.cpp
 				track.cpp
