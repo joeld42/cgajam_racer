@@ -47,3 +47,25 @@ inline float fsgn( float v ) {
     if (v < 0.0) return -1.0f;
     else return 1.0f;
 }
+
+inline float clampf( float low, float high, float val ) 
+{
+    if (val < low) return low;
+    else if (val > high) return high;
+    else return val;
+}
+
+inline float saturatef( float val ) {
+    return clampf( 0.0, 1.0, val );
+}
+
+inline Color ColorLerp( Color a, Color b, float t) {
+    Color result;
+    float tInv = 1.0 - t;
+    result.r = t*a.r + tInv*b.r;
+    result.g = t*a.g + tInv*b.g;
+    result.b = t*a.b + tInv*b.b;
+    result.a = t*a.a + tInv*b.a;
+    return result;
+}
+

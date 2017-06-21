@@ -42,5 +42,6 @@ struct CarModel
 	void Update( float dt, float throttle, float steer, bool brake );
 
 	PhysicsGraph _graphSpeed;
+	PhysicsGraph _graphAngle;
 };
 

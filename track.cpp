@@ -6,6 +6,8 @@
 #include "track.h"
 #include "util.h"
 
+#define SEG_COOLDOWN_TIME (1.5)
+
 Track::Track() :
 	nTrackPoints(0),
 	meshBuilt(false)
@@ -16,6 +18,7 @@ Track::Track() :
 void Track::genRandom()
 {
 	nTrackPoints = 0;
+	nCollideSeg = 0;
 
 	static bool usePreset = true;
 
@@ -67,6 +70,113 @@ void Track::addTrackPoint( float x, float z )
 	addTrackPoint( tp );
 }
 
+void Track::addCollideSeg( Vector3 a, Vector3 b )
+{
+	CollisionSegment *seg = collideSeg + nCollideSeg++;
+	seg->a = Vector2Make( a.x, a.z );
+	seg->b = Vector2Make( b.x, b.z );
+	seg->cooldown = 0.0;
+}
+
+bool Track::checkCollide( Vector3 pA, Vector3 pB, Vector3 *isectPos, Vector3 *isectNorm )
+{
+	// TODO: Bucket these or something..
+	Vector2 pA2 = Vector2Make( pA.x, pA.z );
+	Vector2 pB2 = Vector2Make( pB.x, pB.z );
+
+	for (int i=0; i < nCollideSeg; i++) {
+		CollisionSegment *seg = collideSeg + i;
+		if (checkCollideSeg( pA2, pB2, seg, isectPos )) {
+			seg->cooldown = SEG_COOLDOWN_TIME;
+
+			if (isectNorm) {
+				Vector3 wallVec = Vector3Make( seg->b.x - seg->a.x, 0.0, seg->b.y - seg->a.y );
+				VectorNormalize( &wallVec );
+				*isectNorm = VectorCrossProduct( wallVec, (Vector3){ 0.0, -1.0, 0.0} );
+				VectorNormalize( isectNorm );
+			}
+
+			return true;
+		}
+	}
+	return false;
+}
+
+bool Track::checkCollideSeg( Vector2 p1, Vector2 p2, CollisionSegment *seg, Vector3 *isectPos )
+{
+	float Ax,Bx,Cx,Ay,By,Cy,d,e,f,num/*,offset*/;
+	float x1lo,x1hi,y1lo,y1hi;
+
+	Vector2 p3 = seg->a;
+	Vector2 p4 = seg->b;
+
+	Ax = p2.x-p1.x;
+	Bx = p3.x-p4.x;
+
+	// X bound box test/
+	if(Ax<0) {
+		x1lo=p2.x; x1hi=p1.x;
+	} else {
+		x1hi=p2.x; x1lo=p1.x;		
+	}
+	if(Bx>0) {
+		if(x1hi < p4.x || p3.x < x1lo) return false;
+	} else {
+		if(x1hi < p3.x || p4.x < x1lo) return false;
+	}
+
+	Ay = p2.y-p1.y;
+	By = p3.y-p4.y;
+
+	// Y bound box test//
+	if(Ay<0) {                  
+		y1lo=p2.y; y1hi=p1.y;
+	} else {
+		y1hi=p2.y; y1lo=p1.y;
+	}
+
+	if(By>0) {
+		if(y1hi < p4.y || p3.y < y1lo) return false;
+	} else {
+		if(y1hi < p3.y || p4.y < y1lo) return false;
+	}
+
+	Cx = p1.x-p3.x;
+	Cy = p1.y-p3.y;
+	d = By*Cx - Bx*Cy;  // alpha numerator//
+	f = Ay*Bx - Ax*By;  // both denominator//
+
+	// alpha tests//
+	if(f>0) {
+		if(d<0 || d>f) return false;
+	} else {
+		if(d>0 || d<f) return false;
+	}
+
+	e = Ax*Cy - Ay*Cx;  // beta numerator//
+	// beta tests //
+	if(f>0) {                          
+		if(e<0 || e>f) return false;
+	} else {
+		if(e>0 || e<f) return false;
+	}
+
+	// check if they are parallel
+	if(f==0) return false;
+
+	// compute intersection coordinates //
+	num = d*Ax; // numerator //
+	num = d*Ay;
+
+	if (isectPos) {
+		isectPos->x = p1.x + num / f;
+		isectPos->y = p1.y + num / f;
+	}
+	
+	return true;
+
+}
+
 void Track::drawTrack( Shader &shader )
 {
 	if (meshBuilt) {
@@ -74,6 +184,23 @@ void Track::drawTrack( Shader &shader )
 		DrawModel( trackModel, (Vector3){ 0.0, 0.0, 0.0}, 1.0, (Color)WHITE );
 	}
 }
+
+void Track::drawCollideSegs()
+{
+	for (int i=0; i < nCollideSeg; i++) {
+		CollisionSegment *seg = collideSeg + i;
+		Vector3 a = Vector3Make( seg->a.x, 0.5, seg->a.y );
+		Vector3 b = Vector3Make( seg->b.x, 0.5, seg->b.y );
+
+		//DrawLine3D( a, b, ColorLerp( (Color)GOLD, (Color)BLUE, seg->cooldown ) );
+		DrawLine3D( a, b, ColorLerp( (Color)GOLD, (Color)BLUE, (seg->cooldown) / SEG_COOLDOWN_TIME ) );
+
+		if (seg->cooldown > 0.0) {
+			seg->cooldown = saturatef( seg->cooldown - 1.5*(1.0/60.0) );
+		}
+	}
+}
+
 
 void Track::drawTrackEditMode()
 {
@@ -113,6 +240,8 @@ void Track::buildTrackMesh()
 {
   	//Mesh LoadMeshEx(int numVertex, float *vData, float *vtData, float *vnData, Color *cData);
     //Model LoadModelFromMesh(Mesh data, bool dynamic);                                       
+
+    nCollideSeg = 0;
 
 	int nPoints = 1000;
     Vector3 *vert = (Vector3*)malloc( sizeof(Vector3) * nPoints * 6 );
@@ -162,6 +291,9 @@ void Track::buildTrackMesh()
 			st[ndx+4] = Vector2Make( 0.0, trackLength * texScale);
 			vert[ndx+3] = right;
 			st[ndx+3] = Vector2Make( 1.0, trackLength * texScale );
+
+			addCollideSeg( prevLeft, left );
+			addCollideSeg( prevRight, right );
 
 			for (int j=0; j < 6; j++) {
 				nrm[ndx+j] = (Vector3){0.0, 1.0, 0.0};

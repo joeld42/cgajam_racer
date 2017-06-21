@@ -51,7 +51,8 @@ const sync_track *syncGridSize = NULL;
 #define CGA_WHITE    CLITERAL{ 255, 255, 255, 255 }
 
 Model cycleMesh;
-Texture2D cycleTexture;
+Texture2D cycleTextureBase;
+RenderTexture2D cycleTexture;
 
 Model torusModel;
 Texture2D torusTexture;
@@ -248,6 +249,7 @@ void DrawScene( CarModel *carSim, Shader shader )
     // torusModel.material.shader = shader;
     // DrawModelEx( torusModel, torusPos, torusAxis, torusAngle, (Vector3){3.0f, 3.0f, 3.0f}, (Color)WHITE );
 
+
 }
 
 void EnableDitherEffect( Shader &cgaShader )
@@ -382,11 +384,15 @@ int main()
 
     Vector3 trackStart = raceTrack.point[0].pos;
     carSim._pos = Vector2Make( trackStart.x, trackStart.z );
+    carSim._carPos = Vector3Make( trackStart.x, 0.0, trackStart.z );
 
     cycleMesh = LoadModel("cycle1.obj");
-    cycleTexture = LoadTexture("cycle_col.png");
+    cycleTextureBase = LoadTexture("cycle_col.png");
+    cycleTexture = LoadRenderTexture(cycleTextureBase.width, cycleTextureBase.height );
+    //SetTextureFilter( cycleTexture.texture, FILTER_POINT );
+
     cycleMesh.material.texSpecular = LoadTexture("cycle_maps.png");; 
-    cycleMesh.material.texDiffuse = cycleTexture; 
+    cycleMesh.material.texDiffuse = cycleTexture.texture; 
 
     //cycleMesh.material.shader = worldShader;
 
@@ -410,6 +416,9 @@ int main()
     texPalette = MakePaletteTexture(64);
     texBayerDither = MakeBayerDitherTexture();
 
+    float steerAmount = 0.0;
+    //PhysicsGraph turn;
+
     // Main game loop
     while (!WindowShouldClose())                // Detect window close button or ESC key
     {
@@ -419,10 +428,14 @@ int main()
         row_f = ms_to_row_f(curtime_ms, row_rate);
 
         // Update
-        //----------------------------------------------------------------------------------
+        //----------------------------------------------------------------------------------        
+        float dt = 1.0/60.0;
+
         float throttle = 0.0f;
         float turn = 0.0f;
         bool brake = false;
+        float minTurn = -1.0;
+        float maxTurn = 1.0;
         if (IsKeyDown(KEY_UP)) {
             throttle += 1.0f;
         } 
@@ -431,12 +444,28 @@ int main()
         } 
 
         // TODO: make wheel continuous, and recenter
+        bool isSteering = false;
         if (IsKeyDown(KEY_RIGHT)) {
             turn -= 1.0;
-        } 
-        if (IsKeyDown(KEY_LEFT)) {
+            isSteering = true;
+        } else if (IsKeyDown(KEY_LEFT)) {
             turn += 1.0;
-        } 
+            isSteering = true;
+        }
+
+        if (turn > 0.1) {
+            minTurn = 0.0;
+        } else if (turn < -0.1) {
+            maxTurn = 0.0;
+        }
+
+        if (!isSteering) {
+            // return to center if no turn pushed
+            steerAmount *= 0.75;
+        } else {
+            steerAmount += turn*5.0*dt;            
+            steerAmount = clampf(  minTurn, maxTurn, steerAmount );
+        }
 
         // DBG/Edit keys
         if (IsKeyPressed(KEY_P)) {
@@ -446,6 +475,7 @@ int main()
             // DBG reset
             Vector3 trackStart = raceTrack.point[0].pos;
             carSim._pos = Vector2Make( trackStart.x, trackStart.z );
+            carSim._carPos = Vector3Make( trackStart.x, 0.0, trackStart.z );
             carSim._vel = Vector2Make( 0.0f, 0.0f );
             carSim._angularvelocity = 0.0f;
             carSim._angle = 0.0f;
@@ -544,12 +574,36 @@ int main()
         }
 
         if (!editMode) {
-            static float time = 0.0;
-            float dt = 1.0f/60.0f;
+            static float time = 0.0;            
 
             if (!paused) {
                 time += dt;
-                carSim.Update( dt, throttle, turn, brake );
+
+                int numSubstep = 10;
+                for (int substep=0; substep < numSubstep; substep++) {
+                    Vector3 prevCarPos = carSim._carPos;
+                    Vector2 prevCarPos2 = carSim._pos;
+
+                    Vector3 hitPos = {0};
+                    Vector3 hitNorm = {0};
+                    carSim.Update( dt / (float)numSubstep, throttle, steerAmount, brake );
+                    if (raceTrack.checkCollide( prevCarPos, carSim._carPos, &hitPos, &hitNorm )) {
+                        Vector3 carVel = Vector3Make( carSim._vel.x, 0.0, carSim._vel.y );
+                        carVel = VectorReflect( carVel, hitNorm );
+
+                        carSim._carPos = prevCarPos;
+                        carSim._pos = prevCarPos2;
+                        float hitAbsorb = 0.8;
+                        carSim._vel = Vector2Make( carVel.x*hitAbsorb, carVel.z*hitAbsorb );
+                        printf("Hit rail: %3.2f %3.2f %3.2f\n",
+                            hitPos.x, hitPos.y, hitPos.z );
+                        printf("Prev Pos %3.2f %3.2f pos %3.2f, %3.2f\n",
+                            prevCarPos.x, prevCarPos.z,
+                            carSim._carPos.x, carSim._carPos.z
+                            );
+
+                    }
+                }
             }
 
             if (1) {
@@ -568,9 +622,26 @@ int main()
         Vector3 camTarget = Vector3Make( carSim._pos.x, 0.0f, carSim._pos.y );
         camera.target = camTarget;
         Vector3 followDir = (Vector3){0.0, 0.0, 1.0f };
+
+        const int numAvgFollow = 120;
+        static Vector3 pastFollow[numAvgFollow];
+
         if (Vector2Lenght( carSim._vel) > 0.0f) {
             followDir = Vector3Make( -carSim._vel.x, 0.0f, -carSim._vel.y );
             VectorNormalize( &followDir );
+
+            for (int i=1; i < numAvgFollow; i++) {
+                pastFollow[i-1] = pastFollow[i];
+            }
+            pastFollow[numAvgFollow-1] = followDir;
+
+            followDir = (Vector3){0};
+            for (int i=0; i < numAvgFollow; i++) {
+                followDir = VectorAdd( followDir, pastFollow[i]);
+            }
+            VectorNormalize( &followDir );
+
+            
         }
         // printf("Vel %3.2f %3.2f LEN %3.2f FollowDir: %3.2f %3.2f %3.2f\n", 
         //     carSim._vel.x, carSim._vel.y,
@@ -585,11 +656,30 @@ int main()
         
 
         //----------------------------------------------------------------------------------
-
         // Draw
         //----------------------------------------------------------------------------------
         CHECKGL( "aaa");
         BeginDrawing();
+
+            // Update cycle texture
+            BeginTextureMode( cycleTexture );
+            Rectangle cycleTextureRect = (Rectangle){ 0, 0, cycleTextureBase.width, cycleTextureBase.height };
+            Rectangle cycleTextureRectFlipped = (Rectangle){ 0, cycleTextureBase.height, cycleTextureBase.width, -cycleTextureBase.height  };
+            DrawTexturePro( cycleTextureBase, cycleTextureRectFlipped, cycleTextureRect, 
+                (Vector2){ 0, 0 }, 0, (Color)WHITE);
+
+            // Thrusters (todo, more faded, like  temperature)
+
+            // 301, 447
+            DrawCircle( 301, 512-447, 48*throttle, (Color)WHITE );
+            DrawCircle( 301, 512-447, 20*throttle, (Color)CGA_MAGENTA );
+
+            //127, 29 wh 59, 20
+            if (brake) {
+                DrawRectangle( 68, 512-(57+20), 60, 20, (Color)CGA_MAGENTA );
+            }
+
+            EndTextureMode();
 
             bool frameDoPixelate = doPixelate && (!editMode);
             bool frameDoCgaMode = doCGAMode && frameDoPixelate;            
@@ -606,7 +696,7 @@ int main()
             Begin3dMode(activeCamera);
             //DrawSphere( (Vector3){0.0, 0.0, 0.0f }, 1.0f, (Color)LIME );
             BeginShaderMode( worldMtlShader );
-            DrawScene( &carSim, worldMtlShader );
+            DrawScene( &carSim, worldMtlShader );            
             EndShaderMode( );
 
             CHECKGL( "aaa");
@@ -625,8 +715,9 @@ int main()
             Begin3dMode(activeCamera);
 
             BeginShaderMode( worldShader );
-            DrawScene( &carSim, worldShader );
+            DrawScene( &carSim, worldShader );            
             EndShaderMode( );
+            raceTrack.drawCollideSegs();
 
             if (editMode) {
                 raceTrack.drawTrackEditMode();
@@ -689,6 +780,12 @@ int main()
 
             Rectangle graphRect = { screenWidth/2, screenHeight/2, screenWidth/2, 50 };
             DrawPhysicsGraph( &(carSim._graphSpeed), graphRect );
+
+            float x1 = screenWidth/2 + 20; 
+            float x2 = screenWidth - 20; 
+            float steerPoint = x1 + (x2-x1) * ((-steerAmount * 0.5)+0.5);
+            DrawLine( x1, screenHeight - 40, x2, screenHeight - 40, (Color)RED );
+            DrawCircle( steerPoint, screenHeight - 40, 10.0, (Color)GOLD );
 
             DrawFPS(15, screenHeight - 20);
 

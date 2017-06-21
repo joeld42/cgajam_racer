@@ -40,10 +40,11 @@ const float CA_F        = -5.0f;    /* cornering stiffness */
 const float MAX_GRIP    = 4.0f;     /* maximum (normalised) friction force, =diameter of friction circle */
 
 // const float THROTTLE = (100.0f);
-const float THROTTLE = (1500.0f);
+const float THROTTLE = (500.0f);
 
-const float BRAKE = (250.0f);
-const float MAX_STEERANGLE = (30.0f); // degrees
+const float BRAKE = (400.0f);
+//const float MAX_STEERANGLE = (30.0f); // degrees
+const float MAX_STEERANGLE = (40.0f); // degrees
 
 CarModel::CarModel()
 {
