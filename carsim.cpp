@@ -16,13 +16,14 @@
 #endif
 
 // carsim constants
+// NOTE: commented out value are orig values
 const float EPS = 0.0001f;
 const float CAR_B = 1.0f; // m
 const float CAR_C = 1.0f; // m
 const float CAR_WHEELBASE = CAR_B + CAR_C;
 const float CAR_H = 1.0f; // m
 //const float CAR_MASS = 5000.0f; // kg
-const float CAR_MASS = 1000.0f; // kg
+const float CAR_MASS = 3000.0f; // kg
 //const float CAR_INERTIA = 5000.0f; // kg.m
 const float CAR_INERTIA = 1000.0f; // kg.m
 const float CAR_WIDTH = 1.5f; // m
@@ -34,17 +35,19 @@ const float CAR_WHEELWIDTH = 0.3f;
 const float DRAG        = 7.0f;     /* factor for air resistance (drag)         */
 //const float RESISTANCE  = 30.0f;    /* factor for rolling resistance */
 const float RESISTANCE  = 30.0f;    /* factor for rolling resistance */
-const float CA_R        = -5.20f;   /* cornering stiffness */
-const float CA_F        = -5.0f;    /* cornering stiffness */
+// const float CA_R        = -5.20f;   /* cornering stiffness */
+// const float CA_F        = -5.0f;    /* cornering stiffness */
+const float CA_R        = -15.20f;   /* cornering stiffness */
+const float CA_F        = -15.0f;    /* cornering stiffness */
 //const float MAX_GRIP    = 2.0f;     /* maximum (normalised) friction force, =diameter of friction circle */
-const float MAX_GRIP    = 4.0f;     /* maximum (normalised) friction force, =diameter of friction circle */
+const float MAX_GRIP    = 20.0f;     /* maximum (normalised) friction force, =diameter of friction circle */
 
 // const float THROTTLE = (100.0f);
 const float THROTTLE = (500.0f);
 
 const float BRAKE = (400.0f);
 //const float MAX_STEERANGLE = (30.0f); // degrees
-const float MAX_STEERANGLE = (40.0f); // degrees
+const float MAX_STEERANGLE = (20.0f); // degrees
 
 CarModel::CarModel()
 {
@@ -201,10 +204,12 @@ void CarModel::Update( float dt, float throttle, float steer, bool brake )
 	Vector2 ftraction;
 	ftraction.x = 100*(_throttle - _brake*fsgn(vel.x));
 	ftraction.y = 0;
-	if(_rear_slip)
-	{
-		ftraction.x *= 0.5;
-	}
+
+	// TMP: disable slip
+	// if(_rear_slip)
+	// {
+	// 	ftraction.x *= 0.5;
+	// }
 
 	// Forces and torque on body
 
