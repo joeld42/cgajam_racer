@@ -238,12 +238,13 @@ void Track::drawTrackEditMode()
 
 void Track::buildTrackMesh()
 {
+	printf("Build Track Mesh ------------------------------\n" );
   	//Mesh LoadMeshEx(int numVertex, float *vData, float *vtData, float *vnData, Color *cData);
     //Model LoadModelFromMesh(Mesh data, bool dynamic);                                       
 
     nCollideSeg = 0;
 
-	int nPoints = 1000;
+	int nPoints = 1500;
     Vector3 *vert = (Vector3*)malloc( sizeof(Vector3) * nPoints * 6 );
     Vector3 *nrm = (Vector3*)malloc( sizeof(Vector3) * nPoints * 6 );
     Vector2 *st = (Vector2*)malloc( sizeof(Vector2) * nPoints * 6 );    
@@ -331,13 +332,13 @@ Vector3 Track::evalTrackCurve( float pval )
 {
 	float fp = floor(pval);
 	int pndx = (int)fp;
-	int ndxA = (pndx-1) % nTrackPoints;
+	int ndxA = (pndx+nTrackPoints-1) % nTrackPoints;
 	int ndxB = (pndx+0) % nTrackPoints;
 	int ndxC = (pndx+1) % nTrackPoints;
 	int ndxD = (pndx+2) % nTrackPoints;
 
-	//printf("pval %3.2f : A %d B %d C %d D %d\n", pval,
-	//			ndxA, ndxB, ndxC, ndxD ); 
+	// printf("pval %3.2f : A %d B %d C %d D %d\n", pval,
+	// 			ndxA, ndxB, ndxC, ndxD ); 
 
 	//float t = 0.25 + ((pval - fp) * 0.5);
 	float t = pval - fp;
