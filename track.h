@@ -44,6 +44,8 @@ public:
 	void drawTrackEditMode();
 	void drawCollideSegs();
 
+	void dumpTrackOBJ(int numVertex, float *vData, float *vtData, float *vnData);
+
 	bool checkCollide( Vector3 pA, Vector3 pB, Vector3 *isectPos, Vector3 *isectNorm );
 	bool checkCollideSeg( Vector2 p1, Vector2 p2, CollisionSegment *seg, Vector3 *isectPos );
 

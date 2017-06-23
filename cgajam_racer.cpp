@@ -243,16 +243,23 @@ void DrawScene( CarModel *carSim, Shader shader )
     // engine Pos 
 
     cycleMesh.material.shader = shader;
-#if 0
+
+        // Tilt
+    cycleMesh.transform = MatrixRotate( (Vector3){0.0f, 0.0f, 1.0f}, steerAmount * DEG2RAD * 30.0f );
+
+#if 1
     DrawModelEx( cycleMesh, carPos, (Vector3){0.0f, 1.0f, 0.0f},
                     -RAD2DEG * (carSim->_angle), (Vector3){1.0f, 1.0f, 1.0f}, 
                     (Color)WHITE );
+
+    // Draw flattened for shadow
+    DrawModelEx( cycleMesh, carPos, (Vector3){0.0f, 1.0f, 0.0f},
+                    -RAD2DEG * (carSim->_angle), (Vector3){1.0f, 0.0f, 1.0f}, 
+                    (Color)BLACK );
 #else
 
     Matrix transform;
 
-    // Tilt
-    cycleMesh.transform = MatrixRotate( (Vector3){0.0f, 0.0f, 1.0f}, steerAmount * DEG2RAD * 30.0f );
 
     Matrix matRotation = MatrixRotate((Vector3){0.0f, 1.0f, 0.0f}, -carSim->_angle );
     Matrix matScale = MatrixScale(1.0f, 1.0f, 1.0f);
@@ -346,6 +353,8 @@ int main()
     
     int pixelWidth = 320;
     int pixelHeight = 200;
+
+    float editCamHite = 200.0f;
 
     // initialize SoLoud.
     soloud.init();
@@ -531,7 +540,7 @@ int main()
 
             if (editMode) {
                 // Edit mode
-                editCamera.position = (Vector3){ 4.0f, 100.0f, 50.0f};
+                editCamera.position = (Vector3){ 4.0f, editCamHite, 50.0f};
                 editCamera.target = (Vector3){ 0.0f, 0.0f, 0.0f};
 
                 Vector3 facingDir = VectorSubtract( editCamera.target, editCamera.position );
@@ -546,6 +555,17 @@ int main()
         }
 
         if (editMode) {
+
+            int mouseWheel = GetMouseWheelMove();
+            //printf("MouseWHeel: %d hite %f\n", mouseWheel, editCamHite );
+            editCamHite = clampf( 10.0f, 300.0f, editCamHite + (float)mouseWheel  );
+
+            Vector3 camCenterPos = VectorLerp( carSim._carPos, (Vector3){0.0f, 0.0f, 0.0f}, 
+                                    (editCamHite - 10.0) / (300.0 - 10.0) );
+
+            editCamera.position = VectorAdd( camCenterPos, (Vector3){ 4.0f, 0.0f, 5.0f} );
+            editCamera.position.y = editCamHite;
+            editCamera.target =  camCenterPos;
 
             if (IsKeyPressed(KEY_P)) {
                 // Print Track Points

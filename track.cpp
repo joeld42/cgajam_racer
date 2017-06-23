@@ -23,27 +23,18 @@ void Track::genRandom()
 	static bool usePreset = true;
 
 	if (usePreset) {
-		// addTrackPoint( 0.072024, 0.603336 );
-	 //    addTrackPoint( 1.048974, -46.208435 );
-	 //    addTrackPoint( -102.838829, -135.614182 );
-	 //    addTrackPoint( -55.275116, -187.607513 );
-	 //    addTrackPoint( 76.841240, 15.792542 );
-	 //    addTrackPoint( 164.402313, -202.469330 );
-	 //    addTrackPoint( 190.208954, -64.451317 );
-	 //    addTrackPoint( 143.463242, -48.453033 );
-	 //    addTrackPoint( 72.900795, 137.979340 );
-	 //    addTrackPoint( -165.415070, 100.499458 );
 
-	addTrackPoint( -42.733921, 7.118019 );
-    addTrackPoint( -24.298538, -36.245270 );
-    addTrackPoint( -102.838829, -135.614182 );
-    addTrackPoint( -55.275116, -187.607513 );
-    addTrackPoint( 58.704330, -13.472721 );
-    addTrackPoint( 164.402313, -202.469330 );
-    addTrackPoint( 212.666992, -19.637169 );
-    addTrackPoint( 159.511002, -29.298012 );
-    addTrackPoint( 45.775219, 149.611786 );
-    addTrackPoint( -165.415070, 100.499458 );
+		addTrackPoint( -301.522705, -71.407082 );
+	    addTrackPoint( -169.660858, -36.163757 );
+	    addTrackPoint( -180.562576, -200.191132 );
+	    addTrackPoint( -55.275116, -187.607513 );
+	    addTrackPoint( 5.535367, -8.939732 );
+	    addTrackPoint( 132.007812, -208.847870 );
+	    addTrackPoint( 260.176056, -100.337799 );
+	    addTrackPoint( 63.831486, 30.380119 );
+	    addTrackPoint( 80.286369, 204.115875 );
+	    addTrackPoint( -283.021576, 70.168350 );
+
 	} else {
 
 		// Generate random track for editing
@@ -236,12 +227,42 @@ void Track::drawTrackEditMode()
 	
 }
 
+//LoadMeshEx(ndx, (float*)vert, (float*)st, (float*)nrm, NULL /*Color *cData*/ );
+void Track::dumpTrackOBJ(int numVertex, float *vData, float *vtData, float *vnData) 
+{
+
+	FILE *fp = fopen("trackdump.obj", "wt");
+
+	for (int i=0; i < numVertex; i++) {
+		fprintf( fp, "v %f %f %f\n", vData[i*3+0], vData[i*3+1], vData[i*3+2] );
+	}
+
+	for (int i=0; i < numVertex; i++) {
+		fprintf( fp, "vt %f %f\n", vtData[i*2+0], vtData[i*2+1] );
+	}
+
+	for (int i=0; i < numVertex; i++) {
+		fprintf( fp, "vn %f %f %f\n", vnData[i*3+0], vnData[i*3+1], vnData[i*3+2] );
+	}
+
+	int nTri = numVertex / 3;
+	for (int i=0; i < nTri; i++) {
+		fprintf( fp, "f %d/%d/%d %d/%d/%d %d/%d/%d\n",
+					i*3+1, i*3+1, i*3+1,
+					i*3+2, i*3+2, i*3+2,
+					i*3+3, i*3+3, i*3+3 );
+	}
+
+	fclose(fp);
+
+}
 void Track::buildTrackMesh()
 {
 	printf("Build Track Mesh ------------------------------\n" );
   	//Mesh LoadMeshEx(int numVertex, float *vData, float *vtData, float *vnData, Color *cData);
     //Model LoadModelFromMesh(Mesh data, bool dynamic);                                       
 
+	int styleForTrack[] = { 0,1, 2, 3, 0, 1, 2, 3, 0, 1 };
     nCollideSeg = 0;
 
 	int nPoints = 1500;
@@ -272,7 +293,12 @@ void Track::buildTrackMesh()
 
 		dir = Vector3MultScalar( dir, 10.0f );
 		Vector3 right = VectorAdd( p, dir );
-		Vector3 left = VectorSubtract( p, dir );		
+		Vector3 left = VectorSubtract( p, dir );
+
+		// get track pattern
+		int styleNdx = (int)floor( trackLength * 0.003 ) % (sizeof(styleForTrack) / sizeof(styleForTrack[0]));
+		float p0 = (float)( styleForTrack[styleNdx]) / 4.0;
+		float p1 = p0 + 0.25;
 
 		if (t > 0.0) {
 
@@ -280,18 +306,18 @@ void Track::buildTrackMesh()
 			trackLength += d;
 
 			vert[ndx+0] = prevLeft;
-			st[ndx+0] = Vector2Make( 0.0, prevTrackLength * texScale );			
+			st[ndx+0] = Vector2Make( p0, prevTrackLength * texScale );			
 			vert[ndx+1] = prevRight;
-			st[ndx+1] = Vector2Make( 1.0, prevTrackLength * texScale);
+			st[ndx+1] = Vector2Make( p1, prevTrackLength * texScale);
 			vert[ndx+2] = left;
-			st[ndx+2] = Vector2Make( 0.0, trackLength * texScale);
+			st[ndx+2] = Vector2Make( p0, trackLength * texScale);
 
 			vert[ndx+5] = prevRight;
-			st[ndx+5] = Vector2Make( 1.0, prevTrackLength * texScale);
+			st[ndx+5] = Vector2Make( p1, prevTrackLength * texScale);
 			vert[ndx+4] = left;
-			st[ndx+4] = Vector2Make( 0.0, trackLength * texScale);
+			st[ndx+4] = Vector2Make( p0, trackLength * texScale);
 			vert[ndx+3] = right;
-			st[ndx+3] = Vector2Make( 1.0, trackLength * texScale );
+			st[ndx+3] = Vector2Make( p1, trackLength * texScale );
 
 			addCollideSeg( prevLeft, left );
 			addCollideSeg( prevRight, right );
@@ -311,13 +337,18 @@ void Track::buildTrackMesh()
 		t += step;
 	}
 
+	dumpTrackOBJ( ndx, (float*)vert, (float*)st, (float*)nrm );
+
 	trackMesh = LoadMeshEx(ndx, (float*)vert, (float*)st, (float*)nrm, NULL /*Color *cData*/ );
 	trackModel = LoadModelFromMesh( trackMesh, false );
 
-	Texture2D trackTexture = LoadTexture("track1.png");
+	Texture2D trackTexture = LoadTexture("Track1.png");
     trackModel.material.texDiffuse = trackTexture; 
+    trackModel.material.texSpecular = LoadTexture("Track1_mtl.png");; 
 
 	meshBuilt = true;
+
+
 
 	free(vert);
 	free(st);
