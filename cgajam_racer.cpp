@@ -56,6 +56,10 @@ Texture2D cycleTextureBase;
 RenderTexture2D cycleTexture;
 float steerAmount = 0.0;
 
+// World stuff
+Model worldMesh;
+Model tunnelMesh;
+
 Model torusModel;
 Texture2D torusTexture;
 Texture2D torusMtlmapTexture;
@@ -85,6 +89,11 @@ bool gradTest = false;
 bool paused = false;
 
 Track raceTrack;
+
+// camera nonsense
+const int numAvgFollow = 120;
+Vector3 pastFollow[numAvgFollow];
+
 
 // ===================================================================================
 //  Sync tracker stuff
@@ -225,10 +234,16 @@ void DrawShapes()
 
 void DrawScene( CarModel *carSim, Shader shader )
 {
-    DrawGroundSquares();
+    //DrawGroundSquares();
     DrawShapes();
 
     raceTrack.drawTrack( shader );
+
+    worldMesh.material.shader = shader;    
+    DrawModel( worldMesh, (Vector3){ 0.0, 0.0, 0.0}, 1.0, (Color)WHITE );
+
+    tunnelMesh.material.shader = shader;
+    DrawModel( tunnelMesh, (Vector3){ 0.0, 0.0, 0.0}, 1.0, (Color)WHITE ); // SYNC: Tint tunnel light color here
 
     // Draw the car
     Vector3 carPos = {0};
@@ -283,6 +298,7 @@ void DrawScene( CarModel *carSim, Shader shader )
 
 
 }
+
 
 void EnableDitherEffect( Shader &cgaShader )
 {
@@ -340,6 +356,28 @@ void EnableDitherEffect( Shader &cgaShader )
         glActiveTexture( GL_TEXTURE0 );
     }
 
+}
+
+void ResetToStartPos( CarModel *carSim )
+{
+    // DBG reset
+    float trackStartP = 0.5; // start pos parametric along track
+    Vector3 trackStart = raceTrack.evalTrackCurve( trackStartP );
+    Vector3 trackStart2 = raceTrack.evalTrackCurve( trackStartP + 0.01 );
+    Vector3 startDir = VectorSubtract( trackStart2, trackStart );
+
+    carSim->_pos = Vector2Make( trackStart.x, trackStart.z );
+    carSim->_carPos = Vector3Make( trackStart.x, 0.0, trackStart.z );
+    carSim->_vel = Vector2Make( 0.0f, 0.0f );
+    carSim->_angularvelocity = 0.0f;
+    carSim->_angle = atan2( startDir.x, startDir.z ); 
+
+    VectorNormalize( &startDir );
+    startDir.x *= -1.0;
+    startDir.z *= -1.0;
+    for (int i=0; i < numAvgFollow; i++) {
+        pastFollow[i] = startDir;
+    }
 }
 
 int main()
@@ -416,9 +454,7 @@ int main()
     raceTrack.buildTrackMesh();
     //raceTrack.trackModel.material.shader = worldShader;
 
-    Vector3 trackStart = raceTrack.point[0].pos;
-    carSim._pos = Vector2Make( trackStart.x, trackStart.z );
-    carSim._carPos = Vector3Make( trackStart.x, 0.0, trackStart.z );
+    ResetToStartPos( &carSim );
 
     cycleMesh = LoadModel("cycle1.obj");
     cycleTextureBase = LoadTexture("cycle_col.png");
@@ -429,6 +465,14 @@ int main()
     cycleMesh.material.texDiffuse = cycleTexture.texture; 
 
     //cycleMesh.material.shader = worldShader;
+
+    worldMesh = LoadModel("mountain1.obj");
+    worldMesh.material.texDiffuse = LoadTexture("mountain1.png");
+    worldMesh.material.texSpecular = LoadTexture("mountain_mtl.png");
+
+    tunnelMesh = LoadModel("tunnel_inside.obj");
+    tunnelMesh.material.texDiffuse = LoadTexture("tunnel_inside.png");
+    tunnelMesh.material.texSpecular = LoadTexture("tunnel_inside_mtl.png");
 
     torusModel = LoadModel("test_obj_smooth.obj");
     torusTexture = LoadTexture( "testobj_color.png");
@@ -505,13 +549,18 @@ int main()
             paused = !paused;
         }
         if (IsKeyPressed(KEY_Z)) {
-            // DBG reset
-            Vector3 trackStart = raceTrack.point[0].pos;
-            carSim._pos = Vector2Make( trackStart.x, trackStart.z );
-            carSim._carPos = Vector3Make( trackStart.x, 0.0, trackStart.z );
+            ResetToStartPos( &carSim );
+        }
+        if (IsKeyPressed(KEY_X)) {
+            // only reset velocity
             carSim._vel = Vector2Make( 0.0f, 0.0f );
             carSim._angularvelocity = 0.0f;
-            carSim._angle = 0.0f;
+        }
+        if (IsKeyPressed(KEY_D)) {
+            static int screenyNum = 0;
+            char buff[200];
+            sprintf(buff, "screenys/cgaracer%04d.png", screenyNum++ );
+            TakeScreenshot( buff );
         }
         if (IsKeyPressed(KEY_NINE)) {
             doPixelate = !doPixelate;
@@ -667,8 +716,6 @@ int main()
         camera.target = camTarget;
         Vector3 followDir = (Vector3){0.0, 0.0, 1.0f };
 
-        const int numAvgFollow = 120;
-        static Vector3 pastFollow[numAvgFollow];
 
         if (Vector2Lenght( carSim._vel) > 0.0f) {
             followDir = Vector3Make( -carSim._vel.x, 0.0f, -carSim._vel.y );
@@ -822,14 +869,23 @@ int main()
                 }
             }
 
-            Rectangle graphRect = { screenWidth/2, screenHeight/2, screenWidth/2, 50 };
-            DrawPhysicsGraph( &(carSim._graphSpeed), graphRect );
+            if (showMultipass) {
+                Rectangle graphRect = { screenWidth/2, screenHeight/2, screenWidth/2, 50 };
+                DrawPhysicsGraph( &(carSim._graphSpeed), graphRect );
 
-            float x1 = screenWidth/2 + 20; 
-            float x2 = screenWidth - 20; 
-            float steerPoint = x1 + (x2-x1) * ((-steerAmount * 0.5)+0.5);
-            DrawLine( x1, screenHeight - 40, x2, screenHeight - 40, (Color)RED );
-            DrawCircle( steerPoint, screenHeight - 40, 10.0, (Color)GOLD );
+                graphRect.y += 52;
+                DrawPhysicsGraph( &(carSim._graphAngle), graphRect );
+
+                graphRect.y += 52;
+                DrawPhysicsGraph( &(carSim._graphAngVel), graphRect );
+
+                // Steering feedback gizmo
+                float x1 = screenWidth/2 + 20; 
+                float x2 = screenWidth - 20; 
+                float steerPoint = x1 + (x2-x1) * ((-steerAmount * 0.5)+0.5);
+                DrawLine( x1, screenHeight - 40, x2, screenHeight - 40, (Color)RED );
+                DrawCircle( steerPoint, screenHeight - 40, 10.0, (Color)GOLD );
+            }
 
             DrawFPS(15, screenHeight - 20);
 

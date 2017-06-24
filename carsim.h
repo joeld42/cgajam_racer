@@ -1,17 +1,15 @@
 #include <raylib.h>
 
-#define MAX_HISTORY (100)
+#define MAX_HISTORY (200)
 struct PhysicsGraph
 {
 	int numHistory;
 	float history[MAX_HISTORY];
 	float maxVal;
 	float minVal;
-	float defaultMinVal;
-	float defaultMaxVal;
 };
 
-void InitPhysicsGraph( PhysicsGraph *g );
+void InitPhysicsGraph( PhysicsGraph *g, float minGraphVal, float maxGraphVal );
 void UpdatePhysicsGraph( PhysicsGraph *g, float val );
 void DrawPhysicsGraph( PhysicsGraph *g, Rectangle rect );
 
@@ -36,6 +34,7 @@ struct CarModel
 	// For visual feedback not pare of the sim
 	float _tireAngle;
 	Vector3 _carPos;
+	float _speedMph;
 
 	CarModel();	
 	
@@ -43,5 +42,6 @@ struct CarModel
 
 	PhysicsGraph _graphSpeed;
 	PhysicsGraph _graphAngle;
+	PhysicsGraph _graphAngVel;
 };
 

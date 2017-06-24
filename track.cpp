@@ -262,7 +262,11 @@ void Track::buildTrackMesh()
   	//Mesh LoadMeshEx(int numVertex, float *vData, float *vtData, float *vnData, Color *cData);
     //Model LoadModelFromMesh(Mesh data, bool dynamic);                                       
 
-	int styleForTrack[] = { 0,1, 2, 3, 0, 1, 2, 3, 0, 1 };
+	int styleForTrack[] = { 2, 3, 2, // First curve, cyber
+							1, 1, 1, // Forest Curve
+							 2, // connector bit
+							 0, 0, 0 // tunnel
+							 };
     nCollideSeg = 0;
 
 	int nPoints = 1500;
@@ -280,6 +284,9 @@ void Track::buildTrackMesh()
 	float texScale = -0.05;
 	float trackLength = 0.0; 
 	float prevTrackLength = 0.0; 
+
+	float trackDist = 2045.198486;
+
 	Vector3 prevLeft, prevRight, prevP;
 	while (t < totalLen) {
 
@@ -296,7 +303,7 @@ void Track::buildTrackMesh()
 		Vector3 left = VectorSubtract( p, dir );
 
 		// get track pattern
-		int styleNdx = (int)floor( trackLength * 0.003 ) % (sizeof(styleForTrack) / sizeof(styleForTrack[0]));
+		int styleNdx = (int)floor( trackLength/(trackDist*0.1f) ) % (sizeof(styleForTrack) / sizeof(styleForTrack[0]));
 		float p0 = (float)( styleForTrack[styleNdx]) / 4.0;
 		float p1 = p0 + 0.25;
 
@@ -336,6 +343,8 @@ void Track::buildTrackMesh()
 
 		t += step;
 	}
+
+	printf("Total Track Len: %f\n", trackLength );
 
 	dumpTrackOBJ( ndx, (float*)vert, (float*)st, (float*)nrm );
 
