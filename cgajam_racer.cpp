@@ -702,6 +702,9 @@ int main()
                         Vector3 carVel = Vector3Make( carSim._vel.x, 0.0, carSim._vel.y );
                         carVel = VectorReflect( carVel, hitNorm );
 
+                        // extra bump away from the wall
+                        carVel = VectorAdd( carVel, Vector3MultScalar( hitNorm, -0.1 ));
+
                         carSim._carPos = prevCarPos;
                         carSim._pos = prevCarPos2;
                         float hitAbsorb = 0.8;
@@ -826,9 +829,11 @@ int main()
             BeginShaderMode( worldShader );
             DrawScene( &carSim, worldShader );            
             EndShaderMode( );
-            raceTrack.drawCollideSegs();
+            
 
             if (editMode) {
+                raceTrack.drawCollideSegs();
+                
                 raceTrack.drawTrackEditMode();
             }
 
