@@ -358,9 +358,9 @@ void Track::buildTrackMesh()
 	meshBuilt = true;
 
 
-
 	free(vert);
 	free(st);
+
 }
 
 float Track::trackParametricLength()

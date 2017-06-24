@@ -42,6 +42,8 @@ static const double row_rate = (double(bpm) / 60) * rpb;
 float row_f = 0.0;
 const sync_track *syncGridSize = NULL;
 
+
+
 // ===================================================================================
 
 #define MAX_COLUMNS 20
@@ -50,6 +52,12 @@ const sync_track *syncGridSize = NULL;
 #define CGA_CYAN     CLITERAL{ 0, 255, 255, 255 }
 #define CGA_MAGENTA  CLITERAL{ 255, 0, 255, 255 }
 #define CGA_WHITE    CLITERAL{ 255, 255, 255, 255 }
+
+enum {
+    JUSTIFY_LEFT,
+    JUSTIFY_CENTER,
+    JUSTIFY_RIGHT,
+};
 
 Model cycleMesh;
 Texture2D cycleTextureBase;
@@ -71,6 +79,13 @@ float torusAngle = 0.0;
 
 // Hud stuff
 SpriteFont jupiterFont;
+
+enum {
+    GameMode_TITLE,
+    GameMode_GAME,
+    //GameMode_GAME_OVER
+};
+int gameMode = GameMode_TITLE;
 
 // ===================================================================================
 //  Dither Effect
@@ -94,6 +109,14 @@ bool gradTest = false;
 bool paused = false;
 
 Track raceTrack;
+
+#define LAP_TRIGGER_SZ (12.0f)
+
+int currentLap;
+bool lapTriggerStartHit;
+bool lapTriggerHalfHit;
+Vector3 lapTriggerStart;
+Vector3 lapTriggerHalfway;
 
 // camera nonsense
 const int numAvgFollow = 120;
@@ -237,28 +260,69 @@ void DrawShapes()
     DrawSphereWires((Vector3){-1.0f, 1.0f, -2.0f}, 1.01f, 16, 16, (Color)CGA_BLACK);
 }
 
-void DrawHUDText( char *text, float x, float y, int fontsize, Color color )
+void DrawHUDText( char *text, float anchorX, float anchorY, int fontsize, Color color, int justify )
 {
+    float x = anchorX;
+    float y = anchorY;
+
+    Vector2 sz = MeasureTextEx( jupiterFont, text, jupiterFont.baseSize * fontsize, fontsize*2 );
+    if (justify == JUSTIFY_RIGHT) {
+        x -= sz.x;    
+    } else if (justify == JUSTIFY_CENTER) {
+        x -= (sz.x / 2.0);
+    }
+
     DrawTextEx( jupiterFont, text, Vector2Make( x, y ),
-                    jupiterFont.baseSize * fontsize, 1, color);
+                jupiterFont.baseSize * fontsize, fontsize*2, color);
+
 }
 
-void DrawTextOutlined( char *text, float x, float y, int fontSize, Color color )
+void DrawTextOutlined( char *text, float x, float y, int fontSize, Color color, int justify )
 {
-    DrawHUDText( text, x-1, y-1, fontSize, (Color)BLACK );
-    DrawHUDText( text, x+1, y-1, fontSize, (Color)BLACK );
-    DrawHUDText( text, x-1, y+1, fontSize, (Color)BLACK );
-    DrawHUDText( text, x+1, y+1, fontSize, (Color)BLACK );
+    DrawHUDText( text, x-1, y-1, fontSize, (Color)BLACK, justify );
+    DrawHUDText( text, x+1, y-1, fontSize, (Color)BLACK, justify );
+    DrawHUDText( text, x-1, y+1, fontSize, (Color)BLACK, justify );
+    DrawHUDText( text, x+1, y+1, fontSize, (Color)BLACK, justify );
 
-    DrawHUDText( text, x, y, fontSize, color );
+    DrawHUDText( text, x, y, fontSize, color, justify );
 }
 
 void DrawHud( CarModel *carSim, Rectangle screenRect, Color color )
 {
-    // Speed indicator
-    char buff[200];
-    sprintf(buff, "%3.0f", carSim->_speedMph );
-    DrawTextOutlined( buff, screenRect.x + 10, screenRect.y + screenRect.height - 40, 1, color );
+    if (gameMode == GameMode_TITLE) {
+
+        DrawTextOutlined( (char*)"CGA Racer", 
+            screenRect.x + (screenRect.width/2.0), 
+            screenRect.y + 50, 3, color, JUSTIFY_CENTER );
+
+
+            DrawTextOutlined( (char*)"Press SPC to Play", 
+            screenRect.x + (screenRect.width/2.0), 
+            screenRect.y + screenRect.height - 50, 1, color, JUSTIFY_CENTER );
+
+
+    } else {
+
+        // In-game HUD
+
+        if (paused) {
+                DrawTextOutlined( (char*)"(Paused)", 
+                screenRect.x + (screenRect.width/2.0), 
+                screenRect.y + screenRect.height - 50, 1, color.r==0?color:(Color)CGA_MAGENTA, JUSTIFY_CENTER );
+        }
+
+        // Speed indicator
+        char buff[200];
+        sprintf(buff, "%3.0f", carSim->_speedMph );
+        DrawTextOutlined( buff, screenRect.x + 10, screenRect.y + screenRect.height - 40, 2, color, JUSTIFY_LEFT );
+
+        sprintf(buff, "%d:%02d", (int)(floor(carSim->_raceTime / 60.0f)), (int)(fmod(carSim->_raceTime, 60.0f)) );    
+        DrawTextOutlined( buff, screenRect.x + screenRect.width - 10, screenRect.y + screenRect.height - 40, 1, color, JUSTIFY_RIGHT );
+
+        sprintf(buff, "Lap %d/3 %d:%02d", currentLap+1, (int)(floor(carSim->_lapTime / 60.0f)), (int)(fmod(carSim->_lapTime, 60.0f)) );    
+        DrawTextOutlined( buff, screenRect.x + screenRect.width - 10, screenRect.y + screenRect.height - 20, 1, color, JUSTIFY_RIGHT );
+    }
+
 }
 
 void DrawScene( CarModel *carSim, Shader shader )
@@ -395,7 +459,7 @@ void EnableDitherEffect( Shader &cgaShader )
 }
 
 void ResetToStartPos( CarModel *carSim )
-{
+{    
     // DBG reset
     float trackStartP = 0.5; // start pos parametric along track
     Vector3 trackStart = raceTrack.evalTrackCurve( trackStartP );
@@ -408,12 +472,23 @@ void ResetToStartPos( CarModel *carSim )
     carSim->_angularvelocity = 0.0f;
     carSim->_angle = atan2( startDir.x, startDir.z ); 
 
+    carSim->_raceTime = 0.0;
+    carSim->_lapTime = 0.0;
+
     VectorNormalize( &startDir );
     startDir.x *= -1.0;
     startDir.z *= -1.0;
     for (int i=0; i < numAvgFollow; i++) {
         pastFollow[i] = startDir;
     }
+
+    // Set up lap triggers
+    currentLap = 0;
+    lapTriggerStartHit = false;
+    lapTriggerStart = raceTrack.evalTrackCurve( trackStartP );
+    lapTriggerHalfHit = false;
+    lapTriggerHalfway = raceTrack.evalTrackCurve( 5.0 );
+
 }
 
 int main()
@@ -561,6 +636,9 @@ int main()
         bool brake = false;
         float minTurn = -1.0;
         float maxTurn = 1.0;
+
+        bool doUpdate = (!paused) && (gameMode == GameMode_GAME);
+
         if (IsKeyDown(KEY_UP)) {
             throttle += 1.0f;
         } 
@@ -568,48 +646,67 @@ int main()
             brake = true;
         } 
 
-        // TODO: make wheel continuous, and recenter
-        bool isSteering = false;
-        if (IsKeyDown(KEY_RIGHT)) {
-            turn -= 1.0;
-            isSteering = true;
-        } else if (IsKeyDown(KEY_LEFT)) {
-            turn += 1.0;
-            isSteering = true;
+
+        // Update steering
+        if (doUpdate)
+        {
+
+            bool isSteering = false;
+            if (IsKeyDown(KEY_RIGHT)) {
+                turn -= 1.0;
+                isSteering = true;
+            } else if (IsKeyDown(KEY_LEFT)) {
+                turn += 1.0;
+                isSteering = true;
+            }
+
+            if (turn > 0.1) {
+                minTurn = 0.0;
+            } else if (turn < -0.1) {
+                maxTurn = 0.0;
+            }
+
+            if (!isSteering) {
+                // return to center if no turn pushed
+                steerAmount *= 0.75;
+            } else {
+                steerAmount += turn*5.0*dt;            
+                steerAmount = clampf(  minTurn, maxTurn, steerAmount );
+            }
+        }
+        
+        if (gameMode == GameMode_GAME) {
+
+            if (IsKeyPressed(KEY_P)) {
+                paused = !paused;
+            }
+
+            // DBG/Edit keys        
+            if (IsKeyPressed(KEY_Z)) {
+                ResetToStartPos( &carSim );
+            }
+            if (IsKeyPressed(KEY_X)) {
+                // only reset velocity
+                carSim._vel = Vector2Make( 0.0f, 0.0f );
+                carSim._angularvelocity = 0.0f;
+            }
+
+        } else if (gameMode== GameMode_TITLE) {
+            if (IsKeyPressed(KEY_SPACE)) {
+                // Start Game
+                gameMode = GameMode_GAME;
+                ResetToStartPos( &carSim );
+            }
         }
 
-        if (turn > 0.1) {
-            minTurn = 0.0;
-        } else if (turn < -0.1) {
-            maxTurn = 0.0;
-        }
-
-        if (!isSteering) {
-            // return to center if no turn pushed
-            steerAmount *= 0.75;
-        } else {
-            steerAmount += turn*5.0*dt;            
-            steerAmount = clampf(  minTurn, maxTurn, steerAmount );
-        }
-
-        // DBG/Edit keys
-        if (IsKeyPressed(KEY_P)) {
-            paused = !paused;
-        }
-        if (IsKeyPressed(KEY_Z)) {
-            ResetToStartPos( &carSim );
-        }
-        if (IsKeyPressed(KEY_X)) {
-            // only reset velocity
-            carSim._vel = Vector2Make( 0.0f, 0.0f );
-            carSim._angularvelocity = 0.0f;
-        }
         if (IsKeyPressed(KEY_D)) {
             static int screenyNum = 0;
             char buff[200];
-            sprintf(buff, "screenys/cgaracer%04d.png", screenyNum++ );
+            sprintf(buff, "cgaracer%04d.png", screenyNum++ );
             TakeScreenshot( buff );
         }
+
+
         if (IsKeyPressed(KEY_NINE)) {
             doPixelate = !doPixelate;
         }
@@ -717,7 +814,8 @@ int main()
         if (!editMode) {
             static float time = 0.0;            
 
-            if (!paused) {
+            if (doUpdate) {
+
                 time += dt;
 
                 int numSubstep = 10;
@@ -748,6 +846,37 @@ int main()
 
                     }
                 }
+
+                // Check Lap Triggers
+                if ((!lapTriggerStartHit) || (lapTriggerHalfHit)) {
+                    float d1 = VectorDistance( carSim._carPos, lapTriggerStart );
+                    if (d1 < LAP_TRIGGER_SZ) {
+                        printf("Hit Lap trigger start!\n");
+                        lapTriggerStartHit = true;
+                        if (lapTriggerHalfHit) {
+                            // already hit the half trigger, we're ending the lap now
+                            currentLap++;
+                            carSim._lapTime = 0.0;
+
+                            lapTriggerHalfHit = false;
+
+                            if (currentLap==3) {
+                                // Done with three laps!
+                                // TODO: give a few seconds of transition out
+                                gameMode = GameMode_TITLE;
+                            }
+                        }
+                    }
+                }
+                if (!lapTriggerHalfHit) {
+                    float d2 = VectorDistance( carSim._carPos, lapTriggerHalfway );
+                    if (d2 < LAP_TRIGGER_SZ ) {
+                        printf("Hit Lap trigger half!\n");
+                        lapTriggerHalfHit = true;
+                    }
+                }
+
+                //if ()
             }
 
             if (1) {
@@ -790,7 +919,9 @@ int main()
         //     followDir.x, followDir.y, followDir.z );
 
         Vector3 cameraOffset = Vector3MultScalar( followDir, 10.0f );
-        cameraOffset.y = 8.0f;
+
+        float camTiltAmount = saturatef( carSim._speedMph / 150.0f );
+        cameraOffset.y = 12.0f - camTiltAmount * 6.0;
         camera.target.y += 4.0;
 
         camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
@@ -873,6 +1004,9 @@ int main()
 
                 raceTrack.drawTrackEditMode();
             }            
+
+            //DrawSphereWires(lapTriggerStart, LAP_TRIGGER_SZ, 5, 10, (Color)LIME );
+            //DrawSphereWires(lapTriggerHalfway, LAP_TRIGGER_SZ, 5, 10, (Color)LIME );
 
             End3dMode();
 

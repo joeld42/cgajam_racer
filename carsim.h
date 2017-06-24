@@ -36,6 +36,10 @@ struct CarModel
 	Vector3 _carPos;
 	float _speedMph;
 
+	
+	float _raceTime;
+	float _lapTime;
+
 	CarModel();	
 	
 	void Update( float dt, float throttle, float steer, bool brake );

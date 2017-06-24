@@ -58,6 +58,8 @@ CarModel::CarModel()
 	_steerangle = 0.0f;
 	_throttle = 0.0f;
 	_brake = 0.0f;
+	_raceTime = 0.0;
+	_lapTime = 0.0;
 
 	_front_slip = false;
 	_rear_slip = false;
@@ -275,6 +277,10 @@ void CarModel::Update( float dt, float throttle, float steer, bool brake )
 		g_carSim.angle = 0.0f;
 	}
 #endif
+
+	// Update race time and lap time
+	_raceTime += dt;
+	_lapTime += dt;
 
 	// Update graphs
 
