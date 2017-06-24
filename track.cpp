@@ -346,7 +346,7 @@ void Track::buildTrackMesh()
 
 	printf("Total Track Len: %f\n", trackLength );
 
-	dumpTrackOBJ( ndx, (float*)vert, (float*)st, (float*)nrm );
+	//dumpTrackOBJ( ndx, (float*)vert, (float*)st, (float*)nrm );
 
 	trackMesh = LoadMeshEx(ndx, (float*)vert, (float*)st, (float*)nrm, NULL /*Color *cData*/ );
 	trackModel = LoadModelFromMesh( trackMesh, false );

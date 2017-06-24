@@ -69,6 +69,9 @@ Vector3 torusAxisRaw = { 0.0, 1.0, 0.0 };
 Vector3 torusAxis = { 0.0, 1.0, 0.0 };
 float torusAngle = 0.0;
 
+// Hud stuff
+SpriteFont jupiterFont;
+
 // ===================================================================================
 //  Dither Effect
 // ===================================================================================
@@ -232,6 +235,30 @@ void DrawShapes()
 {
     DrawSphere((Vector3){-1.0f, 1.0f, -2.0f}, 1.0f, (Color)CGA_CYAN);
     DrawSphereWires((Vector3){-1.0f, 1.0f, -2.0f}, 1.01f, 16, 16, (Color)CGA_BLACK);
+}
+
+void DrawHUDText( char *text, float x, float y, int fontsize, Color color )
+{
+    DrawTextEx( jupiterFont, text, Vector2Make( x, y ),
+                    jupiterFont.baseSize * fontsize, 1, color);
+}
+
+void DrawTextOutlined( char *text, float x, float y, int fontSize, Color color )
+{
+    DrawHUDText( text, x-1, y-1, fontSize, (Color)BLACK );
+    DrawHUDText( text, x+1, y-1, fontSize, (Color)BLACK );
+    DrawHUDText( text, x-1, y+1, fontSize, (Color)BLACK );
+    DrawHUDText( text, x+1, y+1, fontSize, (Color)BLACK );
+
+    DrawHUDText( text, x, y, fontSize, color );
+}
+
+void DrawHud( CarModel *carSim, Rectangle screenRect, Color color )
+{
+    // Speed indicator
+    char buff[200];
+    sprintf(buff, "%3.0f", carSim->_speedMph );
+    DrawTextOutlined( buff, screenRect.x + 10, screenRect.y + screenRect.height - 40, 1, color );
 }
 
 void DrawScene( CarModel *carSim, Shader shader )
@@ -508,6 +535,9 @@ int main()
     int grabPointNdx = 0;
     bool grabbed = false;
 
+    // setup HUD stuff
+    jupiterFont = LoadSpriteFont("jupiter_crash.png");
+
     // Set up pixelate filter
     texPalette = MakePaletteTexture(64);
     texBayerDither = MakeBayerDitherTexture();
@@ -771,6 +801,9 @@ int main()
         // Draw
         //----------------------------------------------------------------------------------
         CHECKGL( "aaa");
+
+        Rectangle pixelRect = (Rectangle){ 0, 0, pixelWidth, pixelHeight };
+
         BeginDrawing();
 
             // Update cycle texture
@@ -814,6 +847,10 @@ int main()
             CHECKGL( "aaa");
 
             End3dMode();
+
+            // MATERIAL pass
+            DrawHud( &carSim, pixelRect, (Color){ 0, 0, 0 });
+
             EndTextureMode();            
             
             CHECKGL( "aaa");
@@ -833,11 +870,13 @@ int main()
 
             if (editMode) {
                 raceTrack.drawCollideSegs();
-                
+
                 raceTrack.drawTrackEditMode();
-            }
+            }            
 
             End3dMode();
+
+            DrawHud( &carSim, pixelRect, (Color)WHITE );
 
             if (frameDoPixelate) {
                 EndTextureMode();
