@@ -59,6 +59,8 @@ float steerAmount = 0.0;
 // World stuff
 Model worldMesh;
 Model tunnelMesh;
+Model tunnelEntrMesh;
+Model hexagonMesh;
 
 Model torusModel;
 Texture2D torusTexture;
@@ -244,6 +246,13 @@ void DrawScene( CarModel *carSim, Shader shader )
 
     tunnelMesh.material.shader = shader;
     DrawModel( tunnelMesh, (Vector3){ 0.0, 0.0, 0.0}, 1.0, (Color)WHITE ); // SYNC: Tint tunnel light color here
+
+    tunnelEntrMesh.material.shader = shader;
+    DrawModel( tunnelEntrMesh, (Vector3){ 0.0, 0.0, 0.0}, 1.0, (Color)WHITE ); // SYNC: Tint tunnel light color here
+
+    hexagonMesh.material.shader = shader;
+    DrawModel( hexagonMesh, (Vector3){ 0.0, 0.0, 0.0}, 1.0, (Color)WHITE ); // SYNC: Tint tunnel light color here
+
 
     // Draw the car
     Vector3 carPos = {0};
@@ -473,6 +482,15 @@ int main()
     tunnelMesh = LoadModel("tunnel_inside.obj");
     tunnelMesh.material.texDiffuse = LoadTexture("tunnel_inside.png");
     tunnelMesh.material.texSpecular = LoadTexture("tunnel_inside_mtl.png");
+
+    tunnelEntrMesh = LoadModel("tunnel_entr.obj");
+    tunnelEntrMesh.material.texDiffuse = LoadTexture("tunnel_entr.png");
+    tunnelEntrMesh.material.texSpecular = LoadTexture("tunnel_entr_mtl.png");
+
+    hexagonMesh = LoadModel("hexagon.obj");
+    hexagonMesh.material.texDiffuse = LoadTexture("hexagon.png");
+    hexagonMesh.material.texSpecular = LoadTexture("hexagon_mtl.png");
+
 
     torusModel = LoadModel("test_obj_smooth.obj");
     torusTexture = LoadTexture( "testobj_color.png");
