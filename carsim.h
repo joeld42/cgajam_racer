@@ -36,13 +36,13 @@ struct CarModel
 	Vector3 _carPos;
 	float _speedMph;
 
-	
+
 	float _raceTime;
 	float _lapTime;
 
 	CarModel();	
 	
-	void Update( float dt, float throttle, float steer, bool brake );
+	void Update( float dt, float throttle, float steer, bool brake, bool timerActive );
 
 	PhysicsGraph _graphSpeed;
 	PhysicsGraph _graphAngle;

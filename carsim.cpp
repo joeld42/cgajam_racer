@@ -123,7 +123,7 @@ void UpdatePhysicsGraph( PhysicsGraph *g, float val )
 	}
 }
 
-void CarModel::Update( float dt, float throttle, float steer, bool brake )
+void CarModel::Update( float dt, float throttle, float steer, bool brake, bool timerActive )
 {
 	// copy control into carsim
 	_steerangle = pow(steer, 3.0f) * (MAX_STEERANGLE * (M_PI/180.0f));
@@ -279,8 +279,10 @@ void CarModel::Update( float dt, float throttle, float steer, bool brake )
 #endif
 
 	// Update race time and lap time
-	_raceTime += dt;
-	_lapTime += dt;
+	if (timerActive) {
+		_raceTime += dt;
+		_lapTime += dt;
+	}
 
 	// Update graphs
 

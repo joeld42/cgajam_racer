@@ -78,6 +78,7 @@ Vector3 torusAxis = { 0.0, 1.0, 0.0 };
 float torusAngle = 0.0;
 
 // Hud stuff
+Texture2D titleScreenTex;
 SpriteFont jupiterFont;
 
 enum {
@@ -117,6 +118,7 @@ bool lapTriggerStartHit;
 bool lapTriggerHalfHit;
 Vector3 lapTriggerStart;
 Vector3 lapTriggerHalfway;
+float gameEndCountdown;
 
 // camera nonsense
 const int numAvgFollow = 120;
@@ -291,14 +293,15 @@ void DrawHud( CarModel *carSim, Rectangle screenRect, Color color )
 {
     if (gameMode == GameMode_TITLE) {
 
-        DrawTextOutlined( (char*)"CGA Racer", 
-            screenRect.x + (screenRect.width/2.0), 
-            screenRect.y + 50, 3, color, JUSTIFY_CENTER );
+        // DrawTextOutlined( (char*)"CGA Racer", 
+        // screenRect.x + (screenRect.width/2.0), 
+        // screenRect.y + 50, 3, color, JUSTIFY_CENTER );
+        DrawTexture( titleScreenTex, 0, 0, color );
 
 
-            DrawTextOutlined( (char*)"Press SPC to Play", 
-            screenRect.x + (screenRect.width/2.0), 
-            screenRect.y + screenRect.height - 50, 1, color, JUSTIFY_CENTER );
+        DrawTextOutlined( (char*)"Press SPC to Play", 
+        screenRect.x + (screenRect.width/2.0), 
+        screenRect.y + 70, 1, color, JUSTIFY_CENTER );
 
 
     } else {
@@ -316,11 +319,13 @@ void DrawHud( CarModel *carSim, Rectangle screenRect, Color color )
         sprintf(buff, "%3.0f", carSim->_speedMph );
         DrawTextOutlined( buff, screenRect.x + 10, screenRect.y + screenRect.height - 40, 2, color, JUSTIFY_LEFT );
 
+
         sprintf(buff, "%d:%02d", (int)(floor(carSim->_raceTime / 60.0f)), (int)(fmod(carSim->_raceTime, 60.0f)) );    
         DrawTextOutlined( buff, screenRect.x + screenRect.width - 10, screenRect.y + screenRect.height - 40, 1, color, JUSTIFY_RIGHT );
-
-        sprintf(buff, "Lap %d/3 %d:%02d", currentLap+1, (int)(floor(carSim->_lapTime / 60.0f)), (int)(fmod(carSim->_lapTime, 60.0f)) );    
-        DrawTextOutlined( buff, screenRect.x + screenRect.width - 10, screenRect.y + screenRect.height - 20, 1, color, JUSTIFY_RIGHT );
+        if (currentLap < 3) {
+            sprintf(buff, "Lap %d/3 %d:%02d", currentLap+1, (int)(floor(carSim->_lapTime / 60.0f)), (int)(fmod(carSim->_lapTime, 60.0f)) );    
+            DrawTextOutlined( buff, screenRect.x + screenRect.width - 10, screenRect.y + screenRect.height - 20, 1, color, JUSTIFY_RIGHT );
+        }
     }
 
 }
@@ -607,6 +612,8 @@ int main()
     // IMPORTANT for cgamode shader
     gradientMapTexture = LoadTexture("gradientmap.png");
 
+    titleScreenTex = LoadTexture("titlescreen.png");
+
     int grabPointNdx = 0;
     bool grabbed = false;
 
@@ -646,6 +653,16 @@ int main()
             brake = true;
         } 
 
+        // stop the car after the last lap
+        if (currentLap >= 3) {
+            throttle = 0.0f;
+            brake = true;
+
+            gameEndCountdown -= dt;
+            if (gameEndCountdown < 0.0) {
+                gameMode = GameMode_TITLE;
+            }
+        }
 
         // Update steering
         if (doUpdate)
@@ -689,6 +706,10 @@ int main()
                 // only reset velocity
                 carSim._vel = Vector2Make( 0.0f, 0.0f );
                 carSim._angularvelocity = 0.0f;
+            }
+            if (IsKeyPressed(KEY_L)) {
+                currentLap ++;
+                gameEndCountdown = 2.0f;
             }
 
         } else if (gameMode== GameMode_TITLE) {
@@ -811,6 +832,8 @@ int main()
         
         }
 
+
+
         if (!editMode) {
             static float time = 0.0;            
 
@@ -825,7 +848,7 @@ int main()
 
                     Vector3 hitPos = {0};
                     Vector3 hitNorm = {0};
-                    carSim.Update( dt / (float)numSubstep, throttle, steerAmount, brake );
+                    carSim.Update( dt / (float)numSubstep, throttle, steerAmount, brake, (currentLap < 3) );
                     if (raceTrack.checkCollide( prevCarPos, carSim._carPos, &hitPos, &hitNorm )) {
                         Vector3 carVel = Vector3Make( carSim._vel.x, 0.0, carSim._vel.y );
                         carVel = VectorReflect( carVel, hitNorm );
@@ -862,8 +885,8 @@ int main()
 
                             if (currentLap==3) {
                                 // Done with three laps!
-                                // TODO: give a few seconds of transition out
-                                gameMode = GameMode_TITLE;
+                                // give a few seconds of transition out
+                                gameEndCountdown = 2.0f;
                             }
                         }
                     }
