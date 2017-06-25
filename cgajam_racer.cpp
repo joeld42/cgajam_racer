@@ -50,6 +50,10 @@ const sync_track *syncAttractCamY = NULL;
 const sync_track *syncAttractCamZ = NULL;
 const sync_track *syncAttractUp = NULL;
 const sync_track *syncAttractTrackP = NULL;
+const sync_track *syncMirrorMode = NULL;
+
+int paramMirrorMode;
+float mirrorMode;
 
 // ===================================================================================
 
@@ -305,7 +309,7 @@ void DrawHud( CarModel *carSim, Rectangle screenRect, Color color )
 {
     char buff[200];
 
-    if (gameMode == GameMode_TITLE) {
+    if ((gameMode == GameMode_TITLE) && (mirrorMode < 0.5)) {
 
         // DrawTextOutlined( (char*)"CGA Racer", 
         // screenRect.x + (screenRect.width/2.0), 
@@ -594,7 +598,7 @@ int main()
     Shader worldShader = LoadShader( (char *)"world.vs", (char *)"world.fs");
     Shader worldMtlShader = LoadShader( (char *)"world.vs", (char *)"world_mtl.fs");
     Shader cgaShader = LoadShader( (char *)"cga_enforce.vs", (char *)"cga_enforce.fs");
-
+    paramMirrorMode = GetShaderLocation( cgaShader, "mirrorMode" );
 
     soloud_music.load("turbo_electric_16pcm.wav"); 
 
@@ -616,6 +620,7 @@ int main()
     syncAttractCamZ = sync_get_track( rocket, "cam:attr.z");
     syncAttractUp = sync_get_track( rocket, "cam:attr.up");
     syncAttractTrackP = sync_get_track( rocket, "cam:trackP");
+    syncMirrorMode = sync_get_track( rocket, "fx:mirror");
 
     // Game Stuff Init
     CarModel carSim;
@@ -691,6 +696,14 @@ int main()
          // Update sync tracker
         rocket_update();
         row_f = ms_to_row_f(curtime_ms, row_rate);
+
+        // update global syncVals
+        if (gameMode == GameMode_TITLE) {
+            mirrorMode = sync_get_val( syncMirrorMode, row_f );
+        } else {
+            // No kaliedscope during race
+            mirrorMode = 0.0;
+        }
 
         // Update
         //----------------------------------------------------------------------------------        
@@ -1205,6 +1218,8 @@ int main()
         
                     glActiveTexture( GL_TEXTURE0 );
                 }
+
+                SetShaderValue( cgaShader, paramMirrorMode, &mirrorMode, 1 );
                 
                 if (gradTest) {
                     textureRect = (Rectangle){ 0, 0, ditherTestTexture.width, ditherTestTexture.height };

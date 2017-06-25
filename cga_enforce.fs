@@ -5,6 +5,7 @@ in vec2 fragTexCoord;
 in vec4 fragColor;
 
 // Input uniform values
+uniform float mirrorMode;
 uniform sampler2D texture0;
 uniform sampler2D gradientmap;
 uniform sampler2D mtlmask;
@@ -28,10 +29,16 @@ void main()
 {
 //    vec4 sum = vec4(0);
 //    vec2 sizeFactor = vec2(1)/size*quality;
+	vec2 adjTexCoord;
+	if (mirrorMode < 0.5) {
+		adjTexCoord = fragTexCoord;
+	} else if (mirrorMode < 1.5) {
+		adjTexCoord = vec2( abs(fragTexCoord.x - 0.5) + 0.5, fragTexCoord.y );
+	}
 
     // Texel color fetching from texture sampler
-    vec4 source = texture(texture0, fragTexCoord);
-    vec4 mask = texture(mtlmask, fragTexCoord);
+    vec4 source = texture(texture0, adjTexCoord);
+    vec4 mask = texture(mtlmask, adjTexCoord);
     
     vec4 ditherColor = texture( dither, fragTexCoord*vec2(80,50) );
     float ditherStrength = mask.g;
