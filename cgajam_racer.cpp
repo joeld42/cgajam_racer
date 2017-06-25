@@ -79,6 +79,8 @@ float torusAngle = 0.0;
 
 // Hud stuff
 Texture2D titleScreenTex;
+Texture2D titleStarText;
+Texture2D titleStar;
 SpriteFont jupiterFont;
 
 enum {
@@ -87,6 +89,9 @@ enum {
     //GameMode_GAME_OVER
 };
 int gameMode = GameMode_TITLE;
+
+float bestLapTime = 99999.0;
+float bestTime = 99999.0;
 
 // ===================================================================================
 //  Dither Effect
@@ -291,17 +296,51 @@ void DrawTextOutlined( char *text, float x, float y, int fontSize, Color color, 
 
 void DrawHud( CarModel *carSim, Rectangle screenRect, Color color )
 {
+    char buff[200];
+
     if (gameMode == GameMode_TITLE) {
 
         // DrawTextOutlined( (char*)"CGA Racer", 
         // screenRect.x + (screenRect.width/2.0), 
         // screenRect.y + 50, 3, color, JUSTIFY_CENTER );
+        
+        static float starAngle = 0.0;
+        starAngle += 0.3;
+        Vector2 starPos = Vector2Make( screenRect.width - 100, (screenRect.height/2)-50 );
+            
+        Rectangle rect = { 0, 0, 128, 128 };
+        Rectangle destRect = { starPos.x + 64, starPos.y+64, 128, 128 };
+        DrawTexturePro(titleStar, rect, destRect, Vector2Make( 64, 64 ),  
+                    starAngle, color );
+
+        DrawTextureEx(titleStarText, starPos, 0.0, 1.0, color );
+
+        sprintf(buff, "%d:%02d", (int)(floor(bestTime / 60.0f)), (int)(fmod(bestTime, 60.0f)) );    
+        if (bestTime >= 99990.0) {
+            sprintf( buff, "?:??");
+        }
+        DrawTextOutlined( buff, starPos.x + 70, starPos.y+45, 1, color, JUSTIFY_RIGHT );
+
+        sprintf(buff, "%d:%02d", (int)(floor(bestLapTime / 60.0f)), (int)(fmod(bestLapTime, 60.0f)) );    
+        if (bestLapTime >= 99990.0) {
+            sprintf( buff, "?:??");
+        }
+        DrawTextOutlined( buff, starPos.x + 70, starPos.y+85, 1, color, JUSTIFY_RIGHT );
+
+
         DrawTexture( titleScreenTex, 0, 0, color );
 
-
         DrawTextOutlined( (char*)"Press SPC to Play", 
-        screenRect.x + (screenRect.width/2.0), 
-        screenRect.y + 70, 1, color, JUSTIFY_CENTER );
+            screenRect.x + (screenRect.width/2.0) -40, 
+            screenRect.y + 70, 1, color, JUSTIFY_CENTER );
+
+        DrawTextOutlined( (char*)"by Joel Davis  ~@joeld42", 
+            screenRect.x + (screenRect.width/2.0), 
+            screenRect.y + screenRect.height - 40, 1, color, JUSTIFY_CENTER );
+
+        DrawTextOutlined( (char*)"Soundtrack by Scott DeVaney", 
+            screenRect.x + (screenRect.width/2.0), 
+            screenRect.y + screenRect.height - 20, 1, color, JUSTIFY_CENTER );
 
 
     } else {
@@ -314,8 +353,7 @@ void DrawHud( CarModel *carSim, Rectangle screenRect, Color color )
                 screenRect.y + screenRect.height - 50, 1, color.r==0?color:(Color)CGA_MAGENTA, JUSTIFY_CENTER );
         }
 
-        // Speed indicator
-        char buff[200];
+        // Speed indicator        
         sprintf(buff, "%3.0f", carSim->_speedMph );
         DrawTextOutlined( buff, screenRect.x + 10, screenRect.y + screenRect.height - 40, 2, color, JUSTIFY_LEFT );
 
@@ -614,6 +652,9 @@ int main()
 
     titleScreenTex = LoadTexture("titlescreen.png");
 
+    titleStar = LoadTexture("star.png");
+    titleStarText = LoadTexture("starTitleText.png");
+
     int grabPointNdx = 0;
     bool grabbed = false;
 
@@ -877,6 +918,11 @@ int main()
                         printf("Hit Lap trigger start!\n");
                         lapTriggerStartHit = true;
                         if (lapTriggerHalfHit) {
+
+                             if (carSim._lapTime < bestLapTime) {
+                                bestLapTime = carSim._lapTime;
+                            }
+
                             // already hit the half trigger, we're ending the lap now
                             currentLap++;
                             carSim._lapTime = 0.0;
@@ -884,6 +930,11 @@ int main()
                             lapTriggerHalfHit = false;
 
                             if (currentLap==3) {
+
+                                if (carSim._raceTime < bestTime) {
+                                    bestTime = carSim._raceTime;
+                                }
+
                                 // Done with three laps!
                                 // give a few seconds of transition out
                                 gameEndCountdown = 2.0f;
@@ -1003,7 +1054,7 @@ int main()
             End3dMode();
 
             // MATERIAL pass
-            DrawHud( &carSim, pixelRect, (Color){ 0, 0, 0 });
+            DrawHud( &carSim, pixelRect, (Color){ 0, 0, 0, 255 });
 
             EndTextureMode();            
             
