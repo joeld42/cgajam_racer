@@ -171,7 +171,7 @@ color="ff4f71b2">
 	<track name="fx:mirror" folded="0" muteKeyCount="0"
 color="ff8850b2">
 		<key row="0" value="0.000000" interpolation="0" />
-		<key row="152" value="1.000000" interpolation="0" />
+		<key row="152" value="3.000000" interpolation="0" />
 		<key row="200" value="0.000000" interpolation="0" />
 	</track>
 </tracks>

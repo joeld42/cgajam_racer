@@ -30,10 +30,21 @@ void main()
 //    vec4 sum = vec4(0);
 //    vec2 sizeFactor = vec2(1)/size*quality;
 	vec2 adjTexCoord;
-	if (mirrorMode < 0.5) {
+	// mirror mode 0 = No mirror
+	// mirror mode 1 = No mirror (but also titles are turned off in game)
+	// mirror mode 2 = horiz mirror
+	// mirror mode 3 = circle vert mirror
+	if (mirrorMode < 1.5) {
 		adjTexCoord = fragTexCoord;
-	} else if (mirrorMode < 1.5) {
+	} else if (mirrorMode < 2.5) {
 		adjTexCoord = vec2( abs(fragTexCoord.x - 0.5) + 0.5, fragTexCoord.y );
+	} else if (mirrorMode < 3.5) {
+		//float d = length( vec2(fragTexCoord.x, fragTexCoord.y * (size.y/size.x)) - vec2( 0.5, 0.5) );
+		float aspect = size.x/size.y;
+		float d = length( fragTexCoord * vec2( aspect, 1.0) - vec2( 0.5*aspect, 0.5) );
+		vec2 texCoordFlip =  vec2( fragTexCoord.x, 1.0-fragTexCoord.y );
+		adjTexCoord = mix( fragTexCoord, texCoordFlip, step( 0.5, d));
+		//adjTexCoord = texCoordFlip;
 	}
 
     // Texel color fetching from texture sampler
