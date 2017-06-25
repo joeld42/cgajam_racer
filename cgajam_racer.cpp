@@ -23,6 +23,9 @@
 SoLoud::Soloud soloud;  
 SoLoud::Wav soloud_music;
 int hmusic; 
+float currTime;
+float songDuration = (60.0*2) + 18.0; // 2:18
+float attractP;
 
 // Music stuff
 static struct sync_device *rocket;
@@ -42,7 +45,11 @@ static const double row_rate = (double(bpm) / 60) * rpb;
 float row_f = 0.0;
 const sync_track *syncGridSize = NULL;
 
-
+const sync_track *syncAttractCamX = NULL;
+const sync_track *syncAttractCamY = NULL;
+const sync_track *syncAttractCamZ = NULL;
+const sync_track *syncAttractUp = NULL;
+const sync_track *syncAttractTrackP = NULL;
 
 // ===================================================================================
 
@@ -223,7 +230,7 @@ static int rocket_update()
 
 #if !defined( SYNC_PLAYER )
 
-    float currTime = soloud.getStreamTime( hmusic );
+    currTime = soloud.getStreamTime( hmusic );
     curtime_ms = (int)(currTime * 1000.0f);
     row = ms_to_row_round( curtime_ms, row_rate );
 
@@ -304,13 +311,13 @@ void DrawHud( CarModel *carSim, Rectangle screenRect, Color color )
         // screenRect.x + (screenRect.width/2.0), 
         // screenRect.y + 50, 3, color, JUSTIFY_CENTER );
         
-        static float starAngle = 0.0;
-        starAngle += 0.3;
+        float starAngle = currTime * -20.0;
+        float starScale = 120 + sync_get_val( syncGridSize, row_f ) * 50.0;
         Vector2 starPos = Vector2Make( screenRect.width - 100, (screenRect.height/2)-50 );
             
         Rectangle rect = { 0, 0, 128, 128 };
-        Rectangle destRect = { starPos.x + 64, starPos.y+64, 128, 128 };
-        DrawTexturePro(titleStar, rect, destRect, Vector2Make( 64, 64 ),  
+        Rectangle destRect = { starPos.x + 64, starPos.y+64, starScale, starScale };
+        DrawTexturePro(titleStar, rect, destRect, Vector2Make( starScale/2, starScale/2 ),  
                     starAngle, color );
 
         DrawTextureEx(titleStarText, starPos, 0.0, 1.0, color );
@@ -328,6 +335,7 @@ void DrawHud( CarModel *carSim, Rectangle screenRect, Color color )
         DrawTextOutlined( buff, starPos.x + 70, starPos.y+85, 1, color, JUSTIFY_RIGHT );
 
 
+        //DBG
         DrawTexture( titleScreenTex, 0, 0, color );
 
         DrawTextOutlined( (char*)"Press SPC to Play", 
@@ -536,6 +544,8 @@ void ResetToStartPos( CarModel *carSim )
 
 int main()
 {
+    char stackStart;
+
     // Initialization
     //--------------------------------------------------------------------------------------
     int screenWidth = 800;
@@ -571,6 +581,7 @@ int main()
     Camera camera = {{ 4.0f, 2.0f, 4.0f }, { 0.0f, 1.8f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 60.0f };
     
     Camera editCamera = {0};
+    Camera attractCamera = {0};
 
     SetCameraMode(editCamera, CAMERA_FREE); 
     SetCameraMode(camera, CAMERA_FREE ); 
@@ -599,6 +610,12 @@ int main()
 
 
     syncGridSize = sync_get_track( rocket, "env:gridsz");
+
+    syncAttractCamX = sync_get_track( rocket, "cam:attr.x");
+    syncAttractCamY = sync_get_track( rocket, "cam:attr.y");
+    syncAttractCamZ = sync_get_track( rocket, "cam:attr.z");
+    syncAttractUp = sync_get_track( rocket, "cam:attr.up");
+    syncAttractTrackP = sync_get_track( rocket, "cam:trackP");
 
     // Game Stuff Init
     CarModel carSim;
@@ -878,6 +895,66 @@ int main()
         if (!editMode) {
             static float time = 0.0;            
 
+
+            // Update attract mode
+            if (gameMode == GameMode_TITLE) {
+
+                attractP = fmod((currTime / songDuration) * (10.0f * 3.0), 10.0 );
+
+                Vector3 attractTarget = raceTrack.evalTrackCurve( attractP );
+                Vector3 attractTarget2 = raceTrack.evalTrackCurve( attractP + 0.01 );
+
+                Vector3 trackTarget;
+                Vector3 trackTarget2;
+                float trackP = sync_get_val( syncAttractTrackP, row_f );
+                if (trackP >= -0.01) {
+                    // Override track P, static camera
+                    trackTarget = raceTrack.evalTrackCurve( trackP );
+                    trackTarget2 = raceTrack.evalTrackCurve( trackP + 0.01 );
+                } else {
+                    // Use (moving) track target
+                    trackTarget = attractTarget;
+                    trackTarget2 = attractTarget2;
+                }
+
+                Vector3 attractOffset = Vector3Make (
+                                sync_get_val( syncAttractCamX, row_f ),
+                                sync_get_val( syncAttractCamY, row_f ),
+                                sync_get_val( syncAttractCamZ, row_f ) );
+
+                Vector3 dir = VectorSubtract( attractTarget2, attractTarget );
+                VectorNormalize( &dir );
+
+                Vector3 trackDir = VectorSubtract( trackTarget2, trackTarget );
+                VectorNormalize( &trackDir );
+                
+                float ang = -atan2( dir.x, dir.z ); 
+                carSim._angle = -ang;
+
+                float trackAng = -atan2( trackDir.x, trackDir.z ); 
+
+                Vector3 attractOffsRel = {0};
+                float camYoffs = sync_get_val( syncAttractUp, row_f );
+                attractTarget.y += camYoffs;
+                trackTarget.y += camYoffs;
+                attractOffsRel.x = attractOffset.x*cos(trackAng) - attractOffset.z*sin(trackAng);
+                attractOffsRel.y = attractOffset.y;
+                attractOffsRel.z = attractOffset.x*sin(trackAng) + attractOffset.z*cos(trackAng);
+
+                attractCamera.position = VectorAdd( trackTarget, attractOffsRel );
+                attractCamera.target = trackTarget;                
+                attractCamera.up = (Vector3){ 0.0, 1.0, 0.0 };
+                attractCamera.fovy = 90.0;
+
+                // why are there two car pos? bc i am stupid
+                carSim._carPos = attractTarget;
+                carSim._pos = Vector2Make(attractTarget.x, attractTarget.z ); 
+
+                
+            }
+
+
+            // Update game?
             if (doUpdate) {
 
                 time += dt;
@@ -1035,6 +1112,9 @@ int main()
             bool frameDoCgaMode = doCGAMode && frameDoPixelate;            
 
             Camera activeCamera = camera;
+            if (gameMode == GameMode_TITLE) {
+                activeCamera = attractCamera;
+            }
             if (editMode) {
                 activeCamera = editCamera;
             }            
@@ -1101,11 +1181,11 @@ int main()
     //            screenRect.height *= displayScale;
 
                 if (showMultipass) {
-                    Rectangle previewRect1 = (Rectangle){ 0, 0, screenWidth/2, screenHeight/2 };
+                    Rectangle previewRect1 = (Rectangle){ screenWidth/2, 0, screenWidth/2, screenHeight/2 };
                     Rectangle previewRect2 = (Rectangle){ 0, screenHeight/2, screenWidth/2, screenHeight/2 }; 
 
                     // Modify ScreenRect for debug
-                    screenRect = (Rectangle){ screenWidth/2, 0, screenWidth/2, screenHeight/2 }; 
+                    screenRect = (Rectangle){ 0, 0, screenWidth/2, screenHeight/2 }; 
 
                     DrawTexturePro( pixelTarget.texture, textureRect, previewRect1, (Vector2){ 0, 0 }, 0, (Color)WHITE);            
                     DrawTexturePro( mtlModeTarget.texture, textureRect, previewRect2, (Vector2){ 0, 0 }, 0, (Color)WHITE);            
@@ -1155,6 +1235,17 @@ int main()
                 float steerPoint = x1 + (x2-x1) * ((-steerAmount * 0.5)+0.5);
                 DrawLine( x1, screenHeight - 40, x2, screenHeight - 40, (Color)RED );
                 DrawCircle( steerPoint, screenHeight - 40, 10.0, (Color)GOLD );
+            }
+
+            // DBG: show track param 
+            if (gameMode == GameMode_TITLE) {
+                //char pbuf[98];
+                char pbuf[10];
+                //char stackCurr;
+                //printf("stack depth is %ld\n", (&stackStart) - (&stackCurr) );
+                
+                sprintf( pbuf, "P: %3.4f", attractP );
+                DrawText( pbuf, 10, 10, 12, (Color)ORANGE );
             }
 
             DrawFPS(15, screenHeight - 20);
