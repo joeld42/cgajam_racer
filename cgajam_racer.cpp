@@ -603,7 +603,7 @@ int main()
     Shader worldShader = LoadShader( (char *)"world.vs", (char *)"world.fs");
     Shader worldMtlShader = LoadShader( (char *)"world.vs", (char *)"world_mtl.fs");
     Shader cgaShader = LoadShader( (char *)"cga_enforce.vs", (char *)"cga_enforce.fs");
-    paramMirrorMode = GetShaderLocation( cgaShader, "mirrorMode" );
+    paramMirrorMode = GetShaderLocation( cgaShader, "FPSmirrorMode" );
 
     soloud_music.load("turbo_electric_16pcm.wav"); 
     // Shorter excerpt for faster load during testing..
@@ -1118,8 +1118,12 @@ int main()
             // Thrusters (todo, more faded, like  temperature)
 
             // 301, 447
-            DrawCircle( 301, 512-447, 48*throttle, (Color)WHITE );
-            DrawCircle( 301, 512-447, 20*throttle, (Color)CGA_MAGENTA );
+            float thrusterRing = 0.5+(gridSz*0.5);
+            if (gameMode == GameMode_GAME) {
+                thrusterRing *= throttle;
+            }
+            DrawCircle( 301, 512-447, 60*thrusterRing, (Color)WHITE );
+            DrawCircle( 301, 512-447, 50*thrusterRing*thrusterRing, (Color)CGA_MAGENTA );
 
             //127, 29 wh 59, 20
             if (brake) {
@@ -1260,6 +1264,7 @@ int main()
             }
 
             // DBG: show track param 
+            #if 0
             if (gameMode == GameMode_TITLE) {
                 //char pbuf[98];
                 char pbuf[10];
@@ -1269,8 +1274,9 @@ int main()
                 sprintf( pbuf, "P: %3.4f", attractP );
                 DrawText( pbuf, 10, 10, 12, (Color)ORANGE );
             }
+            #endif
 
-            DrawFPS(15, screenHeight - 20);
+            //DrawFPS(15, screenHeight - 20);
 
         EndDrawing();
         //----------------------------------------------------------------------------------
