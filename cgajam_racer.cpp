@@ -12,7 +12,7 @@
 
 // sync tracker from librocket
 
-//#define SYNC_PLAYER
+#define SYNC_PLAYER 
 #include "sync.h"
 
 // soloud audio
@@ -24,8 +24,11 @@ SoLoud::Soloud soloud;
 SoLoud::Wav soloud_music;
 int hmusic; 
 float currTime;
+// estimate, can't change this without messing up sync
 float songDuration = (60.0*2) + 18.0; // 2:18
+float songDurationActual;
 float attractP;
+float gridSz; // No longer grid size, bass pulse
 
 // Music stuff
 static struct sync_device *rocket;
@@ -232,10 +235,11 @@ static int rocket_update()
 {
     int row = 0;
 
+    currTime = fmod( soloud.getStreamTime( hmusic ), songDurationActual );
+    curtime_ms = (int)(currTime * 1000.0f);
+
 #if !defined( SYNC_PLAYER )
 
-    currTime = soloud.getStreamTime( hmusic );
-    curtime_ms = (int)(currTime * 1000.0f);
     row = ms_to_row_round( curtime_ms, row_rate );
 
     //row = ms_to_row_round(curtime_ms, rps);
@@ -254,7 +258,7 @@ static int rocket_update()
 
 void DrawGroundSquares()
 {
-    float gridSz = 5.0f + (sync_get_val( syncGridSize, row_f ) * 15.0f);
+    float gridSz2 = 5.0f + (gridSz * 15.0f);
 
     int SZ = 10;
     for (int j=-SZ; j <= SZ; j++) {
@@ -267,7 +271,7 @@ void DrawGroundSquares()
             if (editMode) {
                 groundColor = (Color){ 20, 20, 40, 0xff };
             }
-            DrawPlane( pos, (Vector2){ gridSz, gridSz }, groundColor );
+            DrawPlane( pos, (Vector2){ gridSz2, gridSz2 }, groundColor );
         }
     }
 }
@@ -309,52 +313,53 @@ void DrawHud( CarModel *carSim, Rectangle screenRect, Color color )
 {
     char buff[200];
 
-    if ((gameMode == GameMode_TITLE) && (mirrorMode < 0.5)) {
+    if (gameMode == GameMode_TITLE) {
+        if (mirrorMode < 0.5) {
 
-        // DrawTextOutlined( (char*)"CGA Racer", 
-        // screenRect.x + (screenRect.width/2.0), 
-        // screenRect.y + 50, 3, color, JUSTIFY_CENTER );
-        
-        float starAngle = currTime * -20.0;
-        float starScale = 120 + sync_get_val( syncGridSize, row_f ) * 50.0;
-        Vector2 starPos = Vector2Make( screenRect.width - 100, (screenRect.height/2)-50 );
+            // DrawTextOutlined( (char*)"CGA Racer", 
+            // screenRect.x + (screenRect.width/2.0), 
+            // screenRect.y + 50, 3, color, JUSTIFY_CENTER );
             
-        Rectangle rect = { 0, 0, 128, 128 };
-        Rectangle destRect = { starPos.x + 64, starPos.y+64, starScale, starScale };
-        DrawTexturePro(titleStar, rect, destRect, Vector2Make( starScale/2, starScale/2 ),  
-                    starAngle, color );
+            float starAngle = currTime * -20.0;
+            float starScale = 120 + gridSz * 50.0;
+            Vector2 starPos = Vector2Make( screenRect.width - 100, (screenRect.height/2)-50 );
+                
+            Rectangle rect = { 0, 0, 128, 128 };
+            Rectangle destRect = { starPos.x + 64, starPos.y+64, starScale, starScale };
+            DrawTexturePro(titleStar, rect, destRect, Vector2Make( starScale/2, starScale/2 ),  
+                        starAngle, color );
 
-        DrawTextureEx(titleStarText, starPos, 0.0, 1.0, color );
+            DrawTextureEx(titleStarText, starPos, 0.0, 1.0, color );
 
-        sprintf(buff, "%d:%02d", (int)(floor(bestTime / 60.0f)), (int)(fmod(bestTime, 60.0f)) );    
-        if (bestTime >= 99990.0) {
-            sprintf( buff, "?:??");
-        }
-        DrawTextOutlined( buff, starPos.x + 70, starPos.y+45, 1, color, JUSTIFY_RIGHT );
+            sprintf(buff, "%d:%02d", (int)(floor(bestTime / 60.0f)), (int)(fmod(bestTime, 60.0f)) );    
+            if (bestTime >= 99990.0) {
+                sprintf( buff, "?:??");
+            }
+            DrawTextOutlined( buff, starPos.x + 70, starPos.y+45, 1, color, JUSTIFY_RIGHT );
 
-        sprintf(buff, "%d:%02d", (int)(floor(bestLapTime / 60.0f)), (int)(fmod(bestLapTime, 60.0f)) );    
-        if (bestLapTime >= 99990.0) {
-            sprintf( buff, "?:??");
-        }
-        DrawTextOutlined( buff, starPos.x + 70, starPos.y+85, 1, color, JUSTIFY_RIGHT );
-
-
-        //DBG
-        DrawTexture( titleScreenTex, 0, 0, color );
-
-        DrawTextOutlined( (char*)"Press SPC to Play", 
-            screenRect.x + (screenRect.width/2.0) -40, 
-            screenRect.y + 70, 1, color, JUSTIFY_CENTER );
-
-        DrawTextOutlined( (char*)"by Joel Davis  ~@joeld42", 
-            screenRect.x + (screenRect.width/2.0), 
-            screenRect.y + screenRect.height - 40, 1, color, JUSTIFY_CENTER );
-
-        DrawTextOutlined( (char*)"Soundtrack by Scott DeVaney", 
-            screenRect.x + (screenRect.width/2.0), 
-            screenRect.y + screenRect.height - 20, 1, color, JUSTIFY_CENTER );
+            sprintf(buff, "%d:%02d", (int)(floor(bestLapTime / 60.0f)), (int)(fmod(bestLapTime, 60.0f)) );    
+            if (bestLapTime >= 99990.0) {
+                sprintf( buff, "?:??");
+            }
+            DrawTextOutlined( buff, starPos.x + 70, starPos.y+85, 1, color, JUSTIFY_RIGHT );
 
 
+            //DBG
+            DrawTexture( titleScreenTex, 0, 0, color );
+
+            DrawTextOutlined( (char*)"Press SPC to Play", 
+                screenRect.x + (screenRect.width/2.0) -40, 
+                screenRect.y + 70, 1, color, JUSTIFY_CENTER );
+
+            DrawTextOutlined( (char*)"by Joel Davis  ~@joeld42", 
+                screenRect.x + (screenRect.width/2.0), 
+                screenRect.y + screenRect.height - 40, 1, color, JUSTIFY_CENTER );
+
+            DrawTextOutlined( (char*)"Soundtrack by Scott DeVaney", 
+                screenRect.x + (screenRect.width/2.0), 
+                screenRect.y + screenRect.height - 20, 1, color, JUSTIFY_CENTER );
+
+        }   
     } else {
 
         // In-game HUD
@@ -566,7 +571,7 @@ int main()
     soloud.init();
     
 
-    if (!rocket_init("data/sync")) {
+    if (!rocket_init("syncdata")) {
         return -1;
     }
 
@@ -601,15 +606,16 @@ int main()
     paramMirrorMode = GetShaderLocation( cgaShader, "mirrorMode" );
 
     soloud_music.load("turbo_electric_16pcm.wav"); 
-
     // Shorter excerpt for faster load during testing..
     //soloud_music.load("turbo_electric_16pcm_excerpt.wav"); 
+    songDurationActual = soloud_music.getLength();
+    soloud_music.setLooping(1);
         
     // SoLoud::EchoFilter echo;
     // echo.setParams( 0.5f, 0.5f );
     // soloud_music.setFilter( 0, &echo );
 
-    hmusic = soloud.play(soloud_music);   
+    hmusic = soloud.play(soloud_music);
     printf("Play music: result %d\n", hmusic );
 
 
@@ -704,6 +710,7 @@ int main()
             // No kaliedscope during race
             mirrorMode = 0.0;
         }
+        gridSz = sync_get_val( syncGridSize, row_f );
 
         // Update
         //----------------------------------------------------------------------------------        

@@ -42,9 +42,16 @@ void main()
 		//float d = length( vec2(fragTexCoord.x, fragTexCoord.y * (size.y/size.x)) - vec2( 0.5, 0.5) );
 		float aspect = size.x/size.y;
 		float d = length( fragTexCoord * vec2( aspect, 1.0) - vec2( 0.5*aspect, 0.5) );
+
+		d = abs(cos( d * 3 ));
+
 		vec2 texCoordFlip =  vec2( fragTexCoord.x, 1.0-fragTexCoord.y );
 		adjTexCoord = mix( fragTexCoord, texCoordFlip, step( 0.5, d));
 		//adjTexCoord = texCoordFlip;
+	} else if (mirrorMode < 4.5) {
+		adjTexCoord = vec2( fragTexCoord.x, abs(fragTexCoord.y - 0.5) + 0.5 );
+	} else if (mirrorMode < 5.5) {
+		adjTexCoord = vec2( abs(fragTexCoord.x - 0.5) + 0.5, abs(fragTexCoord.y - 0.5) + 0.5 );
 	}
 
     // Texel color fetching from texture sampler
