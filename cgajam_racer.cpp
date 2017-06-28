@@ -19,8 +19,13 @@
 #include "soloud.h"
 #include "soloud_wav.h"
 #include "soloud_echofilter.h"
+#include "soloud_bassboostfilter.h"
+#include "soloud_biquadresonantfilter.h"
+#include "soloud_sfxr.h"
 
 SoLoud::Soloud soloud;  
+SoLoud::Bus sfx_bus;
+
 SoLoud::Wav soloud_music;
 int hmusic; 
 float currTime;
@@ -235,7 +240,8 @@ static int rocket_update()
 {
     int row = 0;
 
-    currTime = fmod( soloud.getStreamTime( hmusic ), songDurationActual );
+    double filtTime = (currTime * 9 + soloud.getStreamTime(hmusic)) / 10;
+    currTime = fmod( filtTime, songDurationActual );
     curtime_ms = (int)(currTime * 1000.0f);
 
 #if !defined( SYNC_PLAYER )
@@ -603,21 +609,55 @@ int main()
     Shader worldShader = LoadShader( (char *)"world.vs", (char *)"world.fs");
     Shader worldMtlShader = LoadShader( (char *)"world.vs", (char *)"world_mtl.fs");
     Shader cgaShader = LoadShader( (char *)"cga_enforce.vs", (char *)"cga_enforce.fs");
-    paramMirrorMode = GetShaderLocation( cgaShader, "FPSmirrorMode" );
+    paramMirrorMode = GetShaderLocation( cgaShader, "mirrorMode" );
 
     soloud_music.load("turbo_electric_16pcm.wav"); 
     // Shorter excerpt for faster load during testing..
     //soloud_music.load("turbo_electric_16pcm_excerpt.wav"); 
     songDurationActual = soloud_music.getLength();
     soloud_music.setLooping(1);
-        
-    // SoLoud::EchoFilter echo;
-    // echo.setParams( 0.5f, 0.5f );
-    // soloud_music.setFilter( 0, &echo );
 
+        
     hmusic = soloud.play(soloud_music);
     printf("Play music: result %d\n", hmusic );
 
+
+    SoLoud::Sfxr sfxOuch;
+    SoLoud::Sfxr sfxLap;
+    //sfxOuch.setVolume( 4.0 );    
+    sfxOuch.loadPreset(SoLoud::Sfxr::HURT, 0x33A5F3AA );
+
+    sfxLap.loadPreset(SoLoud::Sfxr::POWERUP, 0x6FE76906 );
+    //printf("freq %f\n", sfxOuch.mParams.p_base_freq );    
+
+#if 0
+    SoLoud::Sfxr sfxEngine;
+    sfxEngine.loadPreset(SoLoud::Sfxr::EXPLOSION, 0x33A5F3AA );
+    sfxEngine.mParams.wave_type = 2;            
+    sfxEngine.mParams.p_env_decay = 0.0;    
+    sfxEngine.mParams.p_env_sustain = 1.0;    
+    sfxEngine.mParams.p_env_attack = 0.0;    
+    
+    sfxEngine.setLooping( 1 );
+    //sfxEngine.mParams.
+
+    SoLoud::BiquadResonantFilter bqrFilter;
+    bqrFilter.setParams(SoLoud::BiquadResonantFilter::LOWPASS, 44100, 2000, 10);  
+    sfxEngine.setFilter( 0, &bqrFilter );
+#endif
+
+    sfx_bus.setVolume( 2.0 );
+    soloud.play( sfx_bus );
+
+    //int hSfxEngine = sfx_bus.play(sfxEngine);
+
+    SoLoud::EchoFilter echo;
+    echo.setParams( 0.2f, 0.4f );
+    sfx_bus.setFilter( 0, &echo );
+
+    SoLoud::BassboostFilter bassboost;
+    bassboost.setParams( 11 );
+    sfx_bus.setFilter( 1, &bassboost );
 
     syncGridSize = sync_get_track( rocket, "env:gridsz");
 
@@ -805,6 +845,14 @@ int main()
             TakeScreenshot( buff );
         }
 
+        if (IsKeyPressed(KEY_F)) {
+            int n = rand();
+            printf("SFX id: 0x%X\n", n );
+            
+            sfxLap.loadPreset(SoLoud::Sfxr::POWERUP, n );
+            sfx_bus.play( sfxLap );
+        }
+
 
         if (IsKeyPressed(KEY_NINE)) {
             doPixelate = !doPixelate;
@@ -980,6 +1028,10 @@ int main()
                 time += dt;
 
                 int numSubstep = 10;
+                static float sfxCooldown = 0.0f;
+                if (sfxCooldown > 0.0) {
+                    sfxCooldown-= dt;
+                }
                 for (int substep=0; substep < numSubstep; substep++) {
                     Vector3 prevCarPos = carSim._carPos;
                     Vector2 prevCarPos2 = carSim._pos;
@@ -987,7 +1039,15 @@ int main()
                     Vector3 hitPos = {0};
                     Vector3 hitNorm = {0};
                     carSim.Update( dt / (float)numSubstep, throttle, steerAmount, brake, (currentLap < 3) );
+
                     if (raceTrack.checkCollide( prevCarPos, carSim._carPos, &hitPos, &hitNorm )) {
+
+                        if (sfxCooldown <= 0.0) {
+                            sfxCooldown = RandUniformRange( 0.3, 0.6 );
+                            sfxOuch.mParams.p_base_freq =  0.323300 + RandUniformRange( -1.0, 1.0 ) * 0.1;
+                            sfx_bus.play( sfxOuch);
+                        }
+
                         Vector3 carVel = Vector3Make( carSim._vel.x, 0.0, carSim._vel.y );
                         carVel = VectorReflect( carVel, hitNorm );
 
@@ -1008,6 +1068,34 @@ int main()
                     }
                 }
 
+                // Update music filter
+                //bqrFilter.setParams(SoLoud::BiquadResonantFilter::LOWPASS, 44100, 500, 
+                //    ClampedLerp( 1.0, 30.0, carSim._speedMph / 150.0 ));  
+
+                // Once per second, fade filter
+                //sfxEngine.mParams.p_base_freq = ClampedLerp( 0.0, 1.0,carSim._speedMph / 150.0  );
+#if 0
+                static float filterCooldown =0.0f;
+                filterCooldown -= dt;
+                if (filterCooldown <= 0.0) {
+                    filterCooldown = 1.0;
+                    float targetResonance = ClampedLerp( 1.0, 30.0, carSim._speedMph / 150.0 );
+                    float targetFreq = ClampedLerp( 200.0, 10000.0, carSim._speedMph / 150.0 );
+                    printf("Resonance %f freq %f\n", targetResonance, targetFreq );
+                    soloud.fadeFilterParameter(
+                              hSfxEngine, // Sound handle
+                              0,            // First filter
+                              SoLoud::BiquadResonantFilter::FREQUENCY, // What to adjust
+                              targetFreq,         // Target value
+                              1.0 );   
+                    soloud.fadeFilterParameter(
+                              hSfxEngine, // Sound handle
+                              0,            // First filter
+                              SoLoud::BiquadResonantFilter::RESONANCE, // What to adjust
+                              targetResonance,         // Target value
+                              1.0 );   
+                }
+#endif
                 // Check Lap Triggers
                 if ((!lapTriggerStartHit) || (lapTriggerHalfHit)) {
                     float d1 = VectorDistance( carSim._carPos, lapTriggerStart );
@@ -1023,6 +1111,8 @@ int main()
                             // already hit the half trigger, we're ending the lap now
                             currentLap++;
                             carSim._lapTime = 0.0;
+
+                            sfx_bus.play( sfxLap );
 
                             lapTriggerHalfHit = false;
 

@@ -35,6 +35,11 @@ inline Vector3 Vector3Hadamard( Vector3 a, Vector3 b )
     return (Vector3){ a.x*b.x, a.y * b.y, a.z*b.z };
 }
 
+inline float Lerp( float a, float b, float t )
+{
+    return (1.0-t)*a + (t*b);
+}
+
 inline float RandUniform() {
     return (float)rand() / (float)RAND_MAX;
 }
@@ -67,5 +72,11 @@ inline Color ColorLerp( Color a, Color b, float t) {
     result.b = t*a.b + tInv*b.b;
     result.a = t*a.a + tInv*b.a;
     return result;
+}
+
+
+inline float ClampedLerp( float a, float b, float t )
+{
+    return Lerp( a, b, saturatef( t) );
 }
 
