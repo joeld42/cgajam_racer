@@ -25,7 +25,7 @@ const float CAR_H = 1.0f; // m
 //const float CAR_MASS = 5000.0f; // kg
 const float CAR_MASS = 3000.0f; // kg
 //const float CAR_INERTIA = 5000.0f; // kg.m
-const float CAR_INERTIA = 1000.0f; // kg.m
+const float CAR_INERTIA = 3000.0f; // kg.m
 const float CAR_WIDTH = 1.5f; // m
 const float CAR_LENGTH = 3.0; // m, must be > wheelbase
 const float CAR_WHEELLENGTH = 0.7f;
@@ -147,9 +147,11 @@ void CarModel::Update( float dt, float throttle, float steer, bool brake, bool t
 	// transform vel into car's frame of ref
 	Vector2 vel = Vector2Make(  cs * _vel.y + sn * _vel.x,
 							    -sn * _vel.y + cs * _vel.x );
+	// JOEL - THIS IS THE LINE YOU WANT! if (vel.x < 0) vel.x = 0;
 
 	// lateral force on wheels
 	float yawspeed = CAR_WHEELBASE * 0.5f * _angularvelocity;
+	//float yawspeed = CAR_WHEELBASE * 0.5f * _angularvelocity;
 
 	float rot_angle, sideslip;
 	if ( fabs(vel.x) < EPS )
@@ -165,7 +167,7 @@ void CarModel::Update( float dt, float throttle, float steer, bool brake, bool t
 	
 	// Calculate slip angles for front and rear wheels (a.k.a. alpha)
 	float slipanglefront, slipanglerear;
-	slipanglefront = sideslip + rot_angle - _steerangle;
+	slipanglefront = sideslip + rot_angle - _steerangle * MAX(MIN(vel.x,22),0) * 0.035 /*inertial dampener*/;	
 	slipanglerear  = sideslip - rot_angle;
 
 	// weight per axle = half car mass times 1G (=9.8m/s^2)
@@ -198,6 +200,7 @@ void CarModel::Update( float dt, float throttle, float steer, bool brake, bool t
 
 	// longtitudinal force on rear wheels - very simple traction model
 	Vector2 ftraction;
+	//ftraction.x = 100*(_throttle - _brake*fsgn(vel.x));
 	ftraction.x = 100*(_throttle - _brake*fsgn(vel.x));
 	ftraction.y = 0;
 
@@ -216,11 +219,14 @@ void CarModel::Update( float dt, float throttle, float steer, bool brake, bool t
 
 	// sum forces
 	Vector2 force;
+	//force.x = ftraction.x + sin(_steerangle) * flatf.x + flatr.x + resistance.x;
+	//force.y = ftraction.y + cos(_steerangle) * flatf.y + flatr.y + resistance.y;
 	force.x = ftraction.x + sin(_steerangle) * flatf.x + flatr.x + resistance.x;
 	force.y = ftraction.y + cos(_steerangle) * flatf.y + flatr.y + resistance.y;
 
 	// torque on body from lateral forces
 	float torque = CAR_B * flatf.y - CAR_C * flatr.y;
+	//float torque = 0;
 
 	// Acceleration
 
@@ -237,12 +243,24 @@ void CarModel::Update( float dt, float throttle, float steer, bool brake, bool t
 	acceleration_wc.x =  cs * acceleration.y + sn * acceleration.x;
 	acceleration_wc.y = -sn * acceleration.y + cs * acceleration.x;
 
+	float newVelLocalX = vel.x + acceleration.x * dt;
+	float newVelLocaly = vel.y + acceleration.y * dt;
+	if (newVelLocalX < 0) newVelLocalX = 0; 
 	// velocity is integrated acceleration  	
-	_vel.x += dt * acceleration_wc.x;   
-	_vel.y += dt * acceleration_wc.y;   
+	//_vel.x += dt * acceleration_wc.x;   
+	//_vel.y += dt * acceleration_wc.y;
+	_vel.x =  cs * newVelLocaly + sn * newVelLocalX;
+	_vel.y = -sn * newVelLocaly + cs * newVelLocalX;
 
 	// position is integrated velocity  
+	_reversing = false;
 	_pos = Vector2Add( _pos, Vector2MultScalar( _vel, dt ) );
+	if (brake && newVelLocalX == 0) {
+		const float speedBackwards = 4.0;
+		_pos.x -= speedBackwards * dt * sn;
+		_pos.y -= speedBackwards * dt * cs;
+		_reversing = true;
+	} 
 
 	// Angular velocity and heading
 	

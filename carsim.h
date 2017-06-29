@@ -36,9 +36,10 @@ struct CarModel
 	Vector3 _carPos;
 	float _speedMph;
 
-
 	float _raceTime;
 	float _lapTime;
+
+	bool _reversing;
 
 	CarModel();	
 	

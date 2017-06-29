@@ -616,7 +616,7 @@ int main()
     //soloud_music.load("turbo_electric_16pcm_excerpt.wav"); 
     songDurationActual = soloud_music.getLength();
     soloud_music.setLooping(1);
-
+    //soloud_music.setVolume(0.1);
         
     hmusic = soloud.play(soloud_music);
     printf("Play music: result %d\n", hmusic );
@@ -624,12 +624,17 @@ int main()
 
     SoLoud::Sfxr sfxOuch;
     SoLoud::Sfxr sfxLap;
+    SoLoud::Sfxr sfxBackup;
     //sfxOuch.setVolume( 4.0 );    
     sfxOuch.loadPreset(SoLoud::Sfxr::HURT, 0x33A5F3AA );
 
     sfxLap.loadPreset(SoLoud::Sfxr::POWERUP, 0x6FE76906 );
-    //printf("freq %f\n", sfxOuch.mParams.p_base_freq );    
+    
 
+    sfxBackup.loadPreset(SoLoud::Sfxr::BLIP, 0x60BA710F );
+    sfxBackup.mParams.p_base_freq = 0.373080 ;
+    sfxBackup.mParams.p_env_sustain = 0.4;
+    //printf("freq %f\n", sfxBackup.mParams.p_base_freq );    
 #if 0
     SoLoud::Sfxr sfxEngine;
     sfxEngine.loadPreset(SoLoud::Sfxr::EXPLOSION, 0x33A5F3AA );
@@ -767,7 +772,7 @@ int main()
         if (IsKeyDown(KEY_UP)) {
             throttle += 1.0f;
         } 
-        if (IsKeyDown(KEY_DOWN)) {
+        if (IsKeyDown(KEY_DOWN)) {            
             brake = true;
         } 
 
@@ -849,8 +854,8 @@ int main()
             int n = rand();
             printf("SFX id: 0x%X\n", n );
             
-            sfxLap.loadPreset(SoLoud::Sfxr::POWERUP, n );
-            sfx_bus.play( sfxLap );
+            //sfxBackup.loadPreset(SoLoud::Sfxr::BLIP, n );
+            sfx_bus.play( sfxBackup );
         }
 
 
@@ -1025,7 +1030,16 @@ int main()
             // Update game?
             if (doUpdate) {
 
+                float lastTime = time;
                 time += dt;
+
+                float backupRate = 0.8;
+                if (fmod(lastTime, backupRate) > fmod(time,backupRate) ) {
+                    if (carSim._reversing) {
+                        sfx_bus.play(sfxBackup);
+                    }
+                }
+
 
                 int numSubstep = 10;
                 static float sfxCooldown = 0.0f;
@@ -1058,6 +1072,7 @@ int main()
                         carSim._pos = prevCarPos2;
                         float hitAbsorb = 0.8;
                         carSim._vel = Vector2Make( carVel.x*hitAbsorb, carVel.z*hitAbsorb );
+                        carSim._angularvelocity = 0;
                         printf("Hit rail: %3.2f %3.2f %3.2f\n",
                             hitPos.x, hitPos.y, hitPos.z );
                         printf("Prev Pos %3.2f %3.2f pos %3.2f, %3.2f\n",
