@@ -419,6 +419,7 @@ void DrawScene( CarModel *carSim, Shader shader )
 
     raceTrack.drawTrack( shader );
 
+    
     worldMesh.material.shader = shader;    
     DrawModel( worldMesh, (Vector3){ 0.0, 0.0, 0.0}, 1.0, (Color)WHITE );
 
@@ -1164,7 +1165,7 @@ int main()
                             VectorNegate( &railDir );
                         }
 
-                        float carVel = Vector2Lenght( carSim._vel ) * 0.9;
+                        float carVel = Vector2Length( carSim._vel ) * 0.9;
                         carSim._angularvelocity = 0.0;
                         VectorNormalize( &railDir );
 
@@ -1273,7 +1274,7 @@ int main()
         Vector3 followDir = (Vector3){0.0, 0.0, 1.0f };
 
 
-        if (Vector2Lenght( carSim._vel) > 0.0f) {
+        if (Vector2Length( carSim._vel) > 0.0f) {
             followDir = Vector3Make( -carSim._vel.x, 0.0f, -carSim._vel.y );
             VectorNormalize( &followDir );
 

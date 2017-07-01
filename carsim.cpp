@@ -295,6 +295,7 @@ void CarModel::Update( float dt, float throttle, float steer, bool brake, bool t
 	}
 #endif
 
+
 	// Update race time and lap time
 	if (timerActive) {
 		_raceTime += dt;
@@ -304,7 +305,7 @@ void CarModel::Update( float dt, float throttle, float steer, bool brake, bool t
 	// Update graphs
 
 	// convert m/s to mph
-	_speedMph = Vector2Lenght( _vel ) * 2.23694;
+	_speedMph = Vector2Length( _vel ) * 2.23694;
 	UpdatePhysicsGraph( &_graphSpeed, _speedMph );
 
 	UpdatePhysicsGraph( &_graphAngle, fmod( _angle * RAD2DEG, 180.0f ) );
