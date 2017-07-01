@@ -100,6 +100,7 @@ Model worldMesh;
 Model tunnelMesh;
 Model tunnelEntrMesh;
 Model hexagonMesh;
+Model archMesh; // the arch is the "finish line"
 
 Model torusModel;
 Texture2D torusTexture;
@@ -155,6 +156,7 @@ bool lapTriggerHalfHit;
 Vector3 lapTriggerStart;
 Vector3 lapTriggerHalfway;
 float gameEndCountdown;
+float startAngle;
 
 // camera nonsense
 const int numAvgFollow = 120;
@@ -433,6 +435,9 @@ void DrawScene( CarModel *carSim, Shader shader )
     hexagonMesh.material.shader = shader;
     DrawModel( hexagonMesh, (Vector3){ 0.0, 0.0, 0.0}, 1.0, (Color)WHITE ); // SYNC: Tint tunnel light color here
 
+    archMesh.material.shader = shader;
+    archMesh.transform = MatrixRotate( (Vector3){0.0f, 1.0f, 0.0f},  ((180 + 20) * DEG2RAD)) ;
+    DrawModel( archMesh, lapTriggerStart, 1.0, (Color)WHITE ); // SYNC: Tint tunnel light color here
 
     // Draw the car
     Vector3 carPos = {0};
@@ -469,6 +474,11 @@ void DrawScene( CarModel *carSim, Shader shader )
     DrawModelEx( cycleMesh, carPos, (Vector3){0.0f, 1.0f, 0.0f},
                     -RAD2DEG * (carSim->_angle), (Vector3){1.0f, 0.0f, 1.0f}, 
                     (Color)BLACK );
+
+    DrawModelEx( cycleWheel, carPos, (Vector3){0.0f, 1.0f, 0.0f},
+                    -RAD2DEG * (carSim->_angle), (Vector3){1.0f, 0.0f, 1.0f}, 
+                    (Color)BLACK );
+
 #else
 
     Matrix transform;
@@ -563,12 +573,13 @@ void ResetToStartPos( CarModel *carSim )
     Vector3 trackStart = raceTrack.evalTrackCurve( trackStartP );
     Vector3 trackStart2 = raceTrack.evalTrackCurve( trackStartP + 0.01 );
     Vector3 startDir = VectorSubtract( trackStart2, trackStart );
+    startAngle = atan2( startDir.x, startDir.z ); 
 
     carSim->_pos = Vector2Make( trackStart.x, trackStart.z );
     carSim->_carPos = Vector3Make( trackStart.x, 0.0, trackStart.z );
     carSim->_vel = Vector2Make( 0.0f, 0.0f );
     carSim->_angularvelocity = 0.0f;
-    carSim->_angle = atan2( startDir.x, startDir.z ); 
+    carSim->_angle = startAngle;
 
     carSim->_raceTime = 0.0;
     carSim->_lapTime = 0.0;
@@ -782,6 +793,9 @@ int main()
     hexagonMesh.material.texDiffuse = LoadTexture("hexagon.png");
     hexagonMesh.material.texSpecular = LoadTexture("hexagon_mtl.png");
 
+    archMesh = LoadModel("arch.obj");
+    archMesh.material.texDiffuse = LoadTexture("arch.png");
+    archMesh.material.texSpecular = LoadTexture("arch_mtl.png");
 
     torusModel = LoadModel("test_obj_smooth.obj");
     torusTexture = LoadTexture( "testobj_color.png");
