@@ -90,6 +90,7 @@ enum {
 };
 
 Model cycleMesh;
+Model cycleWheel;
 Texture2D cycleTextureBase;
 RenderTexture2D cycleTexture;
 float steerAmount = 0.0;
@@ -446,12 +447,21 @@ void DrawScene( CarModel *carSim, Shader shader )
     // engine Pos 
 
     cycleMesh.material.shader = shader;
+    cycleWheel.material.shader = shader;
 
-        // Tilt
-    cycleMesh.transform = MatrixRotate( (Vector3){0.0f, 0.0f, 1.0f}, steerAmount * DEG2RAD * 30.0f );
+        // Tilt and turn
+    Matrix tilt = MatrixRotate( (Vector3){0.0f, 0.0f, 1.0f}, steerAmount * DEG2RAD * 30.0f );
+    Matrix turn = MatrixRotate( (Vector3){0.0f, 1.0f, 0.0f}, -steerAmount * DEG2RAD * 30.0f );
+    cycleMesh.transform = tilt;
+
+    cycleWheel.transform = MatrixMultiply( MatrixMultiply( turn, MatrixTranslate( 0.0, 0, 1.99 ) ), tilt );
 
 #if 1
     DrawModelEx( cycleMesh, carPos, (Vector3){0.0f, 1.0f, 0.0f},
+                    -RAD2DEG * (carSim->_angle), (Vector3){1.0f, 1.0f, 1.0f}, 
+                    (Color)WHITE );
+
+    DrawModelEx( cycleWheel, carPos, (Vector3){0.0f, 1.0f, 0.0f},
                     -RAD2DEG * (carSim->_angle), (Vector3){1.0f, 1.0f, 1.0f}, 
                     (Color)WHITE );
 
@@ -574,6 +584,9 @@ void ResetToStartPos( CarModel *carSim )
     currentLap = 0;
     lapTriggerStartHit = false;
     lapTriggerStart = raceTrack.evalTrackCurve( trackStartP );
+    printf("LAP TRIGGER START %f %f %f\n", 
+        lapTriggerStart.x, lapTriggerStart.y, lapTriggerStart.z );
+
     lapTriggerHalfHit = false;
     lapTriggerHalfway = raceTrack.evalTrackCurve( 5.0 );
 
@@ -738,13 +751,18 @@ int main()
 
     ResetToStartPos( &carSim );
 
-    cycleMesh = LoadModel("cycle1.obj");
+    //cycleMesh = LoadModel("cycle1.obj");
+    cycleMesh = LoadModel("cycle_body.obj");
+    cycleWheel = LoadModel("cycle_wheel.obj");
+    // 0, -1.99579, 0 wheel pos
     cycleTextureBase = LoadTexture("cycle_col.png");
     cycleTexture = LoadRenderTexture(cycleTextureBase.width, cycleTextureBase.height );
     //SetTextureFilter( cycleTexture.texture, FILTER_POINT );
 
     cycleMesh.material.texSpecular = LoadTexture("cycle_maps.png");; 
     cycleMesh.material.texDiffuse = cycleTexture.texture; 
+
+    cycleWheel.material = cycleMesh.material;
 
     //cycleMesh.material.shader = worldShader;
 
