@@ -4,11 +4,11 @@
 
 int checkForGLErrors( const char *s, const char * file, int line );
 
-#ifdef NDEBUG
+//#ifdef NDEBUG
 #define CHECKGL( msg )
-#else
-#define CHECKGL( msg ) checkForGLErrors( msg, __FILE__, __LINE__ );
-#endif
+// #else
+// #define CHECKGL( msg ) checkForGLErrors( msg, __FILE__, __LINE__ );
+// #endif
 
 float ColorDistance( Color a, Color b);
 double ColorDistance2(Color e1, Color e2);

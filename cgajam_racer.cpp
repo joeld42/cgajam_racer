@@ -40,6 +40,10 @@ float songDurationActual;
 float attractP;
 float gridSz; // No longer grid size, bass pulse
 
+// enable extra debug stuff
+// Press '1' to enable debug stuff
+bool debugKeys = false;
+
 // Music stuff
 static struct sync_device *rocket;
 #if !defined(SYNC_PLAYER)
@@ -67,6 +71,8 @@ const sync_track *syncMirrorMode = NULL;
 
 int paramMirrorMode;
 float mirrorMode;
+
+float screenShake = 0.0f;
 
 // ===================================================================================
 
@@ -134,7 +140,7 @@ Texture2D ditherMtlTestTexture;
 bool doPixelate = true;
 bool doCGAMode = true;
 bool editMode = false;
-bool showMultipass = true;
+bool showMultipass = false;
 bool gradTest = false;
 bool paused = false;
 
@@ -234,8 +240,6 @@ int rocket_init(const char* prefix)
     }
 #endif
 
-    printf("Rocket connected.\n");
-
     return 1;
 }
 
@@ -247,7 +251,13 @@ static int rocket_update()
 
 #ifdef SYNC_PLAYER
     // SoLoud suggests filtering the time like this to get smoother playback times
-    double filtTime = (currTime * 9 + soloud.getStreamTime(hmusic)) / 10;
+    static double prevTime = 99999.0;
+    double filtTime = soloud.getStreamTime(hmusic);    
+    prevTime = filtTime;
+    if (prevTime < filtTime) {
+        filtTime = (currTime * 9 + filtTime) / 10;
+    }
+    
 #else
     // Don't filter time in sync-tracker mode since it can jump around arbitrarily
     double filtTime = soloud.getStreamTime(hmusic);
@@ -485,14 +495,14 @@ void EnableDitherEffect( Shader &cgaShader )
     static GLint samplerMask = -2;
     static GLint samplerGradientMap = -2;
 
-    CHECKGL("start");
+    //CHECKGL("start");
     if (samplerPally < -1) {
         
         glUseProgram( cgaShader.id);
         
         samplerPally = glGetUniformLocation( cgaShader.id, "pally" );
-        CHECKGL("get uniform");
-        printf("pixelize shader prog %d samplerId %d\n", cgaShader.id, samplerPally );
+        //CHECKGL("get uniform");
+        //printf("pixelize shader prog %d samplerId %d\n", cgaShader.id, samplerPally );
         
         samplerDither = glGetUniformLocation( cgaShader.id, "dither" );
 
@@ -600,6 +610,8 @@ int main()
     RenderTexture2D mtlModeTarget = LoadRenderTexture(pixelWidth, pixelHeight);
     SetTextureFilter( mtlModeTarget.texture, FILTER_POINT );
 
+
+
     //RenderTexture2D postProcTarget = LoadRenderTexture(pixelWidth, pixelHeight);
     //SetTextureFilter( postProcTarget.texture, FILTER_POINT );    
 
@@ -627,11 +639,10 @@ int main()
     //soloud_music.load("turbo_electric_16pcm_excerpt.wav"); 
     songDurationActual = soloud_music.getLength();
     soloud_music.setLooping(1);
+
     //soloud_music.setVolume(0.1);
         
     hmusic = soloud.play(soloud_music);
-    printf("Play music: result %d\n", hmusic );
-
 
     SoLoud::Sfxr sfxOuch;
     SoLoud::Sfxr sfxLap;
@@ -695,15 +706,9 @@ int main()
     // engineReverb.setParams( 0.1f, 0.9f );
     // engine_bus.setFilter( 1, &engineReverb );
 
-    engine_bus.setVolume( 0.03 );
-    soloud.play( engine_bus );
-
-    engine_bus.play( waveformA );
-    engine_bus.play( waveformB );
-    engine_bus.play( waveformC );
+    engine_bus.setVolume( 0.02 );
 
     //int hSfxEngine = sfx_bus.play(sfxEngine);
-
     SoLoud::EchoFilter echo;
     echo.setParams( 0.2f, 0.4f );
     sfx_bus.setFilter( 0, &echo );
@@ -832,7 +837,8 @@ int main()
 
             gameEndCountdown -= dt;
             if (gameEndCountdown < 0.0) {
-                gameMode = GameMode_TITLE;
+                gameMode = GameMode_TITLE;                
+                engine_bus.stop();
             }
         }
 
@@ -870,146 +876,165 @@ int main()
                 paused = !paused;
             }
 
-            // DBG/Edit keys        
-            if (IsKeyPressed(KEY_Z)) {
-                ResetToStartPos( &carSim );
-            }
-            if (IsKeyPressed(KEY_X)) {
-                // only reset velocity
-                carSim._vel = Vector2Make( 0.0f, 0.0f );
-                carSim._angularvelocity = 0.0f;
-            }
-            if (IsKeyPressed(KEY_L)) {
-                currentLap ++;
-                gameEndCountdown = 2.0f;
+
+            if (debugKeys)
+            {
+                if (IsKeyPressed(KEY_Z)) {
+                    ResetToStartPos( &carSim );
+                }
+                if (IsKeyPressed(KEY_X)) {
+                    // only reset velocity
+                    carSim._vel = Vector2Make( 0.0f, 0.0f );
+                    carSim._angularvelocity = 0.0f;
+                }
+                if (IsKeyPressed(KEY_L)) {
+                    currentLap ++;
+                    gameEndCountdown = 2.0f;
+                }
             }
 
         } else if (gameMode== GameMode_TITLE) {
+
+
             if (IsKeyPressed(KEY_SPACE)) {
                 // Start Game
+                soloud.play( engine_bus );
+                engine_bus.play( waveformA );
+                engine_bus.play( waveformB );
+                engine_bus.play( waveformC );
+
                 gameMode = GameMode_GAME;
                 ResetToStartPos( &carSim );
+
             }
         }
 
-        if (IsKeyPressed(KEY_D)) {
-            static int screenyNum = 0;
-            char buff[200];
-            sprintf(buff, "cgaracer%04d.png", screenyNum++ );
-            TakeScreenshot( buff );
-        }
+        if (debugKeys) {
 
-        if (IsKeyPressed(KEY_F)) {
-            int n = rand();
-            printf("SFX id: 0x%X\n", n );
-            
-            //sfxBackup.loadPreset(SoLoud::Sfxr::BLIP, n );
-            sfx_bus.play( sfxBackup );
-        }
+            if (IsKeyPressed(KEY_D)) {
+                static int screenyNum = 0;
+                char buff[200];
+                sprintf(buff, "cgaracer%04d.png", screenyNum++ );
+                TakeScreenshot( buff );
+            }
 
-
-        if (IsKeyPressed(KEY_NINE)) {
-            doPixelate = !doPixelate;
-        }
-        if (IsKeyPressed(KEY_EIGHT)) {
-            showMultipass = !showMultipass;
-        }
-        if (IsKeyPressed(KEY_SEVEN)) {
-            gradTest = !gradTest;
-        }
-        if (IsKeyPressed(KEY_ZERO)) {
-            doCGAMode = !doCGAMode;
-        }
-        if (IsKeyPressed(KEY_FIVE)) {
-            int seed = rand() % 0xfffff;
-            srand( seed );
-            printf("TRACK SEED: %05X\n", seed );
-
-            raceTrack.genRandom();
-        }
-        if (IsKeyPressed(KEY_E)) {
+            if (IsKeyPressed(KEY_F)) {
+                int n = rand();
+                printf("SFX id: 0x%X\n", n );
+                
+                //sfxBackup.loadPreset(SoLoud::Sfxr::BLIP, n );
+                sfx_bus.play( sfxBackup );
+            }
 
 
-             //= {{ 4.0f, 10.0f, 100.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 90.0f };
-            editMode = !editMode;
+            if (IsKeyPressed(KEY_NINE)) {
+                doPixelate = !doPixelate;
+            }
+            if (IsKeyPressed(KEY_EIGHT)) {
+                showMultipass = !showMultipass;
+            }
+            if (IsKeyPressed(KEY_SEVEN)) {
+                gradTest = !gradTest;
+            }
+            if (IsKeyPressed(KEY_ZERO)) {
+                doCGAMode = !doCGAMode;
+            }
+            if (IsKeyPressed(KEY_FIVE)) {
+                int seed = rand() % 0xfffff;
+                srand( seed );
+                printf("TRACK SEED: %05X\n", seed );
+
+                raceTrack.genRandom();
+            }
+            if (IsKeyPressed(KEY_E)) {
+
+
+                 //= {{ 4.0f, 10.0f, 100.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 90.0f };
+                editMode = !editMode;
+
+                if (editMode) {
+                    // Edit mode
+                    editCamera.position = (Vector3){ 4.0f, editCamHite, 50.0f};
+                    editCamera.target = (Vector3){ 0.0f, 0.0f, 0.0f};
+
+                    Vector3 facingDir = VectorSubtract( editCamera.target, editCamera.position );
+                    editCamera.up = VectorCrossProduct(  (Vector3){ 1.0f, 0.0f, 0.0f}, facingDir );
+                    VectorNormalize( &(editCamera.up) );
+                    //editCamera.up = (Vector3){ 0.0f, 1.0f, 0.0f};
+                    editCamera.fovy = 90.0f;
+                    SetCameraMode(editCamera, CAMERA_FREE);
+
+                    // editCamera = camera;
+                }
+            }
 
             if (editMode) {
-                // Edit mode
-                editCamera.position = (Vector3){ 4.0f, editCamHite, 50.0f};
-                editCamera.target = (Vector3){ 0.0f, 0.0f, 0.0f};
 
-                Vector3 facingDir = VectorSubtract( editCamera.target, editCamera.position );
-                editCamera.up = VectorCrossProduct(  (Vector3){ 1.0f, 0.0f, 0.0f}, facingDir );
-                VectorNormalize( &(editCamera.up) );
-                //editCamera.up = (Vector3){ 0.0f, 1.0f, 0.0f};
-                editCamera.fovy = 90.0f;
-                SetCameraMode(editCamera, CAMERA_FREE);
+                int mouseWheel = GetMouseWheelMove();
+                //printf("MouseWHeel: %d hite %f\n", mouseWheel, editCamHite );
+                editCamHite = clampf( 10.0f, 300.0f, editCamHite + (float)mouseWheel  );
 
-                // editCamera = camera;
+                Vector3 camCenterPos = VectorLerp( carSim._carPos, (Vector3){0.0f, 0.0f, 0.0f}, 
+                                        (editCamHite - 10.0) / (300.0 - 10.0) );
+
+                editCamera.position = VectorAdd( camCenterPos, (Vector3){ 4.0f, 0.0f, 5.0f} );
+                editCamera.position.y = editCamHite;
+                editCamera.target =  camCenterPos;
+
+                if (IsKeyPressed(KEY_P)) {
+                    // Print Track Points
+                    for (int i=0; i < raceTrack.nTrackPoints; i++) {
+                        printf("    addTrackPoint( %f, %f );\n", 
+                            raceTrack.point[i].pos.x,
+                            raceTrack.point[i].pos.z );
+                    }
+                }
+                if (IsKeyPressed(KEY_B)) {
+                    raceTrack.buildTrackMesh();
+                }            
+
+                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+                {
+                    Ray ray = GetMouseRay(GetMousePosition(), editCamera );                
+                    RayHitInfo groundHitInfo = GetCollisionRayGround(ray, 0.0f);
+
+                    printf("Ground Hit: %3.2f %3.2f %3.2f\n",
+                        groundHitInfo.position.x,
+                        groundHitInfo.position.y,
+                        groundHitInfo.position.z );
+
+                    float bestDist = 0.0;
+                    int bestNdx = 0;
+                    for (int i=0; i < raceTrack.nTrackPoints; i++) {
+                        float d = VectorDistance( raceTrack.point[i].pos, groundHitInfo.position );
+                        if ((i==0) || (d < bestDist)) {
+                            bestDist = d;
+                            bestNdx = i;
+                        }
+                    }
+
+                    if (bestDist < 10.0) {
+                        grabbed = true;
+                        grabPointNdx = bestNdx;
+                        printf("Grab point %d\n", grabPointNdx );
+                    }
+
+                }
+                else if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+                    grabbed = false;
+                }
+                else if (grabbed) {
+                    Ray ray = GetMouseRay(GetMousePosition(), editCamera );                
+                    RayHitInfo groundHitInfo = GetCollisionRayGround(ray, 0.0f);
+                    raceTrack.point[grabPointNdx].pos = groundHitInfo.position;
+                }
             }
         }
 
-        if (editMode) {
-
-            int mouseWheel = GetMouseWheelMove();
-            //printf("MouseWHeel: %d hite %f\n", mouseWheel, editCamHite );
-            editCamHite = clampf( 10.0f, 300.0f, editCamHite + (float)mouseWheel  );
-
-            Vector3 camCenterPos = VectorLerp( carSim._carPos, (Vector3){0.0f, 0.0f, 0.0f}, 
-                                    (editCamHite - 10.0) / (300.0 - 10.0) );
-
-            editCamera.position = VectorAdd( camCenterPos, (Vector3){ 4.0f, 0.0f, 5.0f} );
-            editCamera.position.y = editCamHite;
-            editCamera.target =  camCenterPos;
-
-            if (IsKeyPressed(KEY_P)) {
-                // Print Track Points
-                for (int i=0; i < raceTrack.nTrackPoints; i++) {
-                    printf("    addTrackPoint( %f, %f );\n", 
-                        raceTrack.point[i].pos.x,
-                        raceTrack.point[i].pos.z );
-                }
-            }
-            if (IsKeyPressed(KEY_B)) {
-                raceTrack.buildTrackMesh();
-            }            
-
-            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-            {
-                Ray ray = GetMouseRay(GetMousePosition(), editCamera );                
-                RayHitInfo groundHitInfo = GetCollisionRayGround(ray, 0.0f);
-
-                printf("Ground Hit: %3.2f %3.2f %3.2f\n",
-                    groundHitInfo.position.x,
-                    groundHitInfo.position.y,
-                    groundHitInfo.position.z );
-
-                float bestDist = 0.0;
-                int bestNdx = 0;
-                for (int i=0; i < raceTrack.nTrackPoints; i++) {
-                    float d = VectorDistance( raceTrack.point[i].pos, groundHitInfo.position );
-                    if ((i==0) || (d < bestDist)) {
-                        bestDist = d;
-                        bestNdx = i;
-                    }
-                }
-
-                if (bestDist < 10.0) {
-                    grabbed = true;
-                    grabPointNdx = bestNdx;
-                    printf("Grab point %d\n", grabPointNdx );
-                }
-
-            }
-            else if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-                grabbed = false;
-            }
-            else if (grabbed) {
-                Ray ray = GetMouseRay(GetMousePosition(), editCamera );                
-                RayHitInfo groundHitInfo = GetCollisionRayGround(ray, 0.0f);
-                raceTrack.point[grabPointNdx].pos = groundHitInfo.position;
-            }
-        
+        // DBG/Edit keys        
+        if (IsKeyPressed(KEY_ONE)) {
+            debugKeys = !debugKeys;
+            printf("DebugMode: %d\n", debugKeys );
         }
 
 
@@ -1110,7 +1135,8 @@ int main()
                             sfxOuch.mParams.p_base_freq =  0.323300 + RandUniformRange( -1.0, 1.0 ) * 0.1;
                             sfx_bus.play( sfxOuch);
                         }
-
+#if 0
+                        // Old collision response.. "reflect" the car's velocity off of the rail
                         Vector3 carVel = Vector3Make( carSim._vel.x, 0.0, carSim._vel.y );
                         carVel = VectorReflect( carVel, hitNorm );
 
@@ -1122,12 +1148,33 @@ int main()
                         float hitAbsorb = 0.8;
                         carSim._vel = Vector2Make( carVel.x*hitAbsorb, carVel.z*hitAbsorb );
                         carSim._angularvelocity = 0;
-                        printf("Hit rail: %3.2f %3.2f %3.2f\n",
-                            hitPos.x, hitPos.y, hitPos.z );
-                        printf("Prev Pos %3.2f %3.2f pos %3.2f, %3.2f\n",
-                            prevCarPos.x, prevCarPos.z,
-                            carSim._carPos.x, carSim._carPos.z
-                            );
+                        // printf("Hit rail: %3.2f %3.2f %3.2f\n",
+                        //     hitPos.x, hitPos.y, hitPos.z );
+                        // printf("Prev Pos %3.2f %3.2f pos %3.2f, %3.2f\n",
+                        //     prevCarPos.x, prevCarPos.z,
+                        //     carSim._carPos.x, carSim._carPos.z
+                        //     );
+#else
+                        // "New" collision, set velocity to point along the rail
+                        Vector3 railDir = VectorCrossProduct( hitNorm, (Vector3){0.0, 1.0, 0.0});
+
+                        // flip rail dir if car is pointing other way
+                        float railDot = carSim._vel.x*railDir.x + carSim._vel.y*railDir.z;
+                        if (railDot < 0.0) {
+                            VectorNegate( &railDir );
+                        }
+
+                        float carVel = Vector2Lenght( carSim._vel ) * 0.9;
+                        carSim._angularvelocity = 0.0;
+                        VectorNormalize( &railDir );
+
+                        carSim._vel = Vector2Make( railDir.x * carVel, railDir.z * carVel );
+                        carSim._angle = atan2( carSim._vel.x, carSim._vel.y );
+                        carSim._carPos = prevCarPos;
+                        carSim._pos = prevCarPos2; 
+
+                        screenShake = 0.2;
+#endif
 
                     }
                 }
@@ -1139,6 +1186,7 @@ int main()
                 waveformA.setPitch( ClampedLerp( 30.0, 1000.0, carSim._speedMph / 150.0 ));
                 waveformB.setPitch( ClampedLerp( 30.0, 1200.0, carSim._speedMph / 150.0 ));
                 waveformC.setPitch( ClampedLerp( 30.0, 800.0, carSim._speedMph / 150.0 ));
+
 
                 // Once per second, fade filter
                 //sfxEngine.mParams.p_base_freq = ClampedLerp( 0.0, 1.0,carSim._speedMph / 150.0  );
@@ -1199,8 +1247,7 @@ int main()
                 }
                 if (!lapTriggerHalfHit) {
                     float d2 = VectorDistance( carSim._carPos, lapTriggerHalfway );
-                    if (d2 < LAP_TRIGGER_SZ ) {
-                        printf("Hit Lap trigger half!\n");
+                    if (d2 < LAP_TRIGGER_SZ ) {                        
                         lapTriggerHalfHit = true;
                     }
                 }
@@ -1240,8 +1287,6 @@ int main()
                 followDir = VectorAdd( followDir, pastFollow[i]);
             }
             VectorNormalize( &followDir );
-
-            
         }
         // printf("Vel %3.2f %3.2f LEN %3.2f FollowDir: %3.2f %3.2f %3.2f\n", 
         //     carSim._vel.x, carSim._vel.y,
@@ -1294,6 +1339,17 @@ int main()
             bool frameDoCgaMode = doCGAMode && frameDoPixelate;            
 
             Camera activeCamera = camera;
+
+            if (screenShake > 0.0) {
+                Vector3 bump = Vector3MultScalar(
+                        Vector3Make( RandUniform(), RandUniform(), RandUniform() ),
+                        screenShake * 8.0
+                        );
+                activeCamera.position = VectorAdd( activeCamera.position, bump );
+
+                screenShake -= dt;
+            }
+
             if (gameMode == GameMode_TITLE) {
                 activeCamera = attractCamera;
             }
@@ -1334,10 +1390,9 @@ int main()
             DrawScene( &carSim, worldShader );            
             EndShaderMode( );
             
-
-            if (editMode) {
+            
+            if (editMode) {                
                 raceTrack.drawCollideSegs();
-
                 raceTrack.drawTrackEditMode();
             }            
 
@@ -1434,7 +1489,10 @@ int main()
             }
             #endif
 
-            //DrawFPS(15, screenHeight - 20);
+            if (debugKeys) {
+                DrawFPS(15, screenHeight - 20);
+                DrawText( "DBG Enabled", 15, screenHeight - 30, 10, (Color)YELLOW );
+            }
 
         EndDrawing();
         //----------------------------------------------------------------------------------

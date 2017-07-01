@@ -8,6 +8,8 @@
 
 #define SEG_COOLDOWN_TIME (1.5)
 
+void CalcCollideSegNorm( CollisionSegment *seg, Vector3 *segNorm );
+
 Track::Track() :
 	nTrackPoints(0),
 	meshBuilt(false)
@@ -69,6 +71,14 @@ void Track::addCollideSeg( Vector3 a, Vector3 b )
 	seg->cooldown = 0.0;
 }
 
+void CalcCollideSegNorm( CollisionSegment *seg, Vector3 *segNorm )
+{
+	Vector3 wallVec = Vector3Make( seg->b.x - seg->a.x, 0.0, seg->b.y - seg->a.y );
+	VectorNormalize( &wallVec );
+	*segNorm = VectorCrossProduct( wallVec, (Vector3){ 0.0, -1.0, 0.0} );
+	VectorNormalize( segNorm );
+}
+
 bool Track::checkCollide( Vector3 pA, Vector3 pB, Vector3 *isectPos, Vector3 *isectNorm )
 {
 	// TODO: Bucket these or something..
@@ -81,10 +91,7 @@ bool Track::checkCollide( Vector3 pA, Vector3 pB, Vector3 *isectPos, Vector3 *is
 			seg->cooldown = SEG_COOLDOWN_TIME;
 
 			if (isectNorm) {
-				Vector3 wallVec = Vector3Make( seg->b.x - seg->a.x, 0.0, seg->b.y - seg->a.y );
-				VectorNormalize( &wallVec );
-				*isectNorm = VectorCrossProduct( wallVec, (Vector3){ 0.0, -1.0, 0.0} );
-				VectorNormalize( isectNorm );
+				CalcCollideSegNorm( seg, isectNorm );
 			}
 
 			return true;
@@ -185,6 +192,12 @@ void Track::drawCollideSegs()
 
 		//DrawLine3D( a, b, ColorLerp( (Color)GOLD, (Color)BLUE, seg->cooldown ) );
 		DrawLine3D( a, b, ColorLerp( (Color)GOLD, (Color)BLUE, (seg->cooldown) / SEG_COOLDOWN_TIME ) );
+
+		Vector3 segNorm;
+		CalcCollideSegNorm( seg, &segNorm );
+		Vector3 center = VectorLerp( a, b, 0.5 );
+		Vector3 normDir = VectorAdd( center, segNorm );
+		DrawLine3D( center, normDir, (Color)LIME );
 
 		if (seg->cooldown > 0.0) {
 			seg->cooldown = saturatef( seg->cooldown - 1.5*(1.0/60.0) );
@@ -288,7 +301,7 @@ void Track::buildTrackMesh()
 	float trackDist = 2045.198486;
 
 	Vector3 prevLeft, prevRight, prevP;
-	while (t < totalLen) {
+	while (t <= (totalLen + 0.001)) {
 
 		Vector3 p = evalTrackCurve(  t );
 		Vector3 p2 = evalTrackCurve( t + 0.001 );

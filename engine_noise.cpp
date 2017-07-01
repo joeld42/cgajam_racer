@@ -52,6 +52,7 @@ void EngineNoiseInstance::getAudio(float *aBuffer, unsigned int aSamples)
 				}
 				mWaveOffset += offsStep;
 				mOffset++;
+				
 			}
 			break;
 		case EngineNoise::SAW:
