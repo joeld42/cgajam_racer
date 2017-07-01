@@ -32,8 +32,11 @@ add_executable (cga_racer
 				carsim.cpp
 				track.cpp
 				dither.cpp
+				engine_noise.cpp				
 				)
 
+#target_compile_options( cga_racer PUBLIC -fno-rtti -g -O0)
+target_compile_options( cga_racer PUBLIC -fno-rtti)
 target_link_libraries( cga_racer ${LIBS} )
 set_target_properties( cga_racer PROPERTIES
 		       		 RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/ )

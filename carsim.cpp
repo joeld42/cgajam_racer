@@ -65,14 +65,13 @@ CarModel::CarModel()
 	_rear_slip = false;
 
 	InitPhysicsGraph( &_graphSpeed, 0.0, 200.0 );
-
 	InitPhysicsGraph( &_graphAngle, -180.0, 180.0 );
 	InitPhysicsGraph( &_graphAngVel, -180.0, 180.0 );
 }
 
 void InitPhysicsGraph( PhysicsGraph *g, float minGraphVal, float maxGraphVal )
 {
-	memset( g, sizeof(PhysicsGraph), 0 );
+	memset( g, 0, sizeof(PhysicsGraph) );
 	g->minVal = minGraphVal;
 	g->maxVal = maxGraphVal;
 }

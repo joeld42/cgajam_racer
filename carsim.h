@@ -1,3 +1,6 @@
+#ifndef CARSIM_H
+#define CARSIM_H
+
 #include <raylib.h>
 
 #define MAX_HISTORY (200)
@@ -49,4 +52,6 @@ struct CarModel
 	PhysicsGraph _graphAngle;
 	PhysicsGraph _graphAngVel;
 };
+
+#endif
 

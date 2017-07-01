@@ -1,6 +1,7 @@
 #include "raylib.h"
 #include "raymath.h"
 
+#include <math.h>
 #include <stdlib.h>
 
 inline Vector2 Vector2Make( float x, float y )
@@ -80,3 +81,30 @@ inline float ClampedLerp( float a, float b, float t )
     return Lerp( a, b, saturatef( t) );
 }
 
+inline float dbToVolume( float dB )
+{
+    return powf( 10.0f, 0.05f * dB );
+}
+
+inline float VolumeTodB( float volume )
+{
+    return( 20.0f * log10f( volume ));
+}
+
+inline float maxf( float a, float b) 
+{
+    if (a > b) {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+inline float minf( float a, float b) 
+{
+    if (a < b) {
+        return a;
+    } else {
+        return b;
+    }
+}

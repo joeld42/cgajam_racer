@@ -21,10 +21,15 @@
 #include "soloud_echofilter.h"
 #include "soloud_bassboostfilter.h"
 #include "soloud_biquadresonantfilter.h"
+#include "soloud_flangerfilter.h"
+#include "soloud_lofifilter.h"
 #include "soloud_sfxr.h"
+
+#include "engine_noise.h"
 
 SoLoud::Soloud soloud;  
 SoLoud::Bus sfx_bus;
+SoLoud::Bus engine_bus;
 
 SoLoud::Wav soloud_music;
 int hmusic; 
@@ -240,7 +245,13 @@ static int rocket_update()
 {
     int row = 0;
 
+#ifdef SYNC_PLAYER
+    // SoLoud suggests filtering the time like this to get smoother playback times
     double filtTime = (currTime * 9 + soloud.getStreamTime(hmusic)) / 10;
+#else
+    // Don't filter time in sync-tracker mode since it can jump around arbitrarily
+    double filtTime = soloud.getStreamTime(hmusic);
+#endif
     currTime = fmod( filtTime, songDurationActual );
     curtime_ms = (int)(currTime * 1000.0f);
 
@@ -625,6 +636,24 @@ int main()
     SoLoud::Sfxr sfxOuch;
     SoLoud::Sfxr sfxLap;
     SoLoud::Sfxr sfxBackup;
+    EngineNoise waveformA;
+    EngineNoise waveformB;
+    EngineNoise waveformC;
+    
+    // SINE,
+    //         TRIANGLE,
+    //         SQUARE,
+    //         SAW,
+    //         INVERSESAW
+    waveformA.setWaveform( EngineNoise::SINE);
+    waveformA.setPitch( 30.0 );
+    
+    waveformB.setWaveform( EngineNoise::SINE);
+    waveformB.setPitch( 30.0 );
+    
+    waveformC.setWaveform( EngineNoise::SINE);
+    waveformC.setPitch( 30.0 );
+
     //sfxOuch.setVolume( 4.0 );    
     sfxOuch.loadPreset(SoLoud::Sfxr::HURT, 0x33A5F3AA );
 
@@ -653,6 +682,25 @@ int main()
 
     sfx_bus.setVolume( 2.0 );
     soloud.play( sfx_bus );
+    
+    //SoLoud::FlangerFilter engineFlange;
+    //engineFlange.setParams( 0.03f, 5 );
+    //engine_bus.setFilter( 0, &engineFlange );
+    
+    SoLoud::LofiFilter engineBitcrush;
+    engineBitcrush.setParams( 4000, 5 );
+    engine_bus.setFilter( 0, &engineBitcrush );
+    
+    // SoLoud::EchoFilter engineReverb;
+    // engineReverb.setParams( 0.1f, 0.9f );
+    // engine_bus.setFilter( 1, &engineReverb );
+
+    engine_bus.setVolume( 0.03 );
+    soloud.play( engine_bus );
+
+    engine_bus.play( waveformA );
+    engine_bus.play( waveformB );
+    engine_bus.play( waveformC );
 
     //int hSfxEngine = sfx_bus.play(sfxEngine);
 
@@ -663,6 +711,7 @@ int main()
     SoLoud::BassboostFilter bassboost;
     bassboost.setParams( 11 );
     sfx_bus.setFilter( 1, &bassboost );
+
 
     syncGridSize = sync_get_track( rocket, "env:gridsz");
 
@@ -1086,6 +1135,10 @@ int main()
                 // Update music filter
                 //bqrFilter.setParams(SoLoud::BiquadResonantFilter::LOWPASS, 44100, 500, 
                 //    ClampedLerp( 1.0, 30.0, carSim._speedMph / 150.0 ));  
+
+                waveformA.setPitch( ClampedLerp( 30.0, 1000.0, carSim._speedMph / 150.0 ));
+                waveformB.setPitch( ClampedLerp( 30.0, 1200.0, carSim._speedMph / 150.0 ));
+                waveformC.setPitch( ClampedLerp( 30.0, 800.0, carSim._speedMph / 150.0 ));
 
                 // Once per second, fade filter
                 //sfxEngine.mParams.p_base_freq = ClampedLerp( 0.0, 1.0,carSim._speedMph / 150.0  );
