@@ -1,7 +1,12 @@
 
 #include <stdio.h> // for printf
+#include <string.h>
 
+#ifdef __APPLE__
 #include <OpenGL/gl3.h>
+#include <mach-o/dyld.h>
+#include <unistd.h>
+#endif
 
 #include "rlgl.h"
 #include "raylib.h"
@@ -605,7 +610,25 @@ void ResetToStartPos( CarModel *carSim )
 
 int main()
 {
-    char stackStart;
+
+    // set current directory to /gamedata
+#ifdef __APPLE__
+    char path[1024];
+    uint32_t size = sizeof(path);
+    if (_NSGetExecutablePath(path, &size) == 0) {
+
+        char *pathEnd = strrchr( path, '/');
+        if (pathEnd) {
+            strcpy( pathEnd+1, "gamedata/");
+            chdir( path );
+
+            // getcwd( path, 1024);
+            // printf ("Current cwd is %s\n", path );
+        }        
+    }
+    // TODO : fix this for windows
+    
+#endif
 
     // Initialization
     //--------------------------------------------------------------------------------------
@@ -1508,19 +1531,6 @@ int main()
                 DrawLine( x1, screenHeight - 40, x2, screenHeight - 40, (Color)RED );
                 DrawCircle( steerPoint, screenHeight - 40, 10.0, (Color)GOLD );
             }
-
-            // DBG: show track param 
-            #if 0
-            if (gameMode == GameMode_TITLE) {
-                //char pbuf[98];
-                char pbuf[10];
-                //char stackCurr;
-                //printf("stack depth is %ld\n", (&stackStart) - (&stackCurr) );
-                
-                sprintf( pbuf, "P: %3.4f", attractP );
-                DrawText( pbuf, 10, 10, 12, (Color)ORANGE );
-            }
-            #endif
 
             if (debugKeys) {
                 DrawFPS(15, screenHeight - 20);
